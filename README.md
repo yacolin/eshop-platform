@@ -15,6 +15,53 @@ tag：`scaffold/v0.1.0`。
 | 接口文档 | springdoc-openapi 3.1（Swagger UI） |
 | 其他 | Security / Validation / Lombok |
 
+## 从模板创建新项目
+
+本仓库定位是可复用的**脚手架模板**：日常更常见的用法不是直接开发它，而是用它
+命令行生成一个全新命名的项目，省去"复制后手动改名"（旧项目名散落在 pom、Java
+包/类名、yml、Makefile、代码生成器、docker-compose、README 等位置，手动易漏）。
+
+```bash
+# 在任意目录执行；脚本所在目录即模板源
+<模板仓库路径>/new-project.sh <项目名> [选项]
+
+<模板仓库路径>/new-project.sh mall                  # 生成 ./mall（默认库名 mall_db）
+<模板仓库路径>/new-project.sh my-shop -o ../apps/my-shop
+<模板仓库路径>/new-project.sh mall -p com.acme.mall  # 自定义 Java 根包
+```
+
+项目名用 **kebab-case**（小写字母/数字 + 连字符，如 `mall`、`my-shop`），脚本自动
+推导三种形态并全量替换：
+
+| 形态 | 示例 | 作用 |
+|---|---|---|
+| kebab | `my-shop` | Maven artifact / 输出目录 / jar 名 / `spring.application.name` |
+| flat | `myshop` | Java 包末段 / 配置前缀 / docker 容器名前缀 |
+| Pascal | `MyShop` | 启动类 `MyShopApplication`、测试类等 |
+
+| 选项 | 说明 |
+|---|---|
+| `-o, --out <dir>` | 输出目录（默认 当前目录/<项目名>） |
+| `-p, --package <pkg>` | Java 根包（默认 `com.example.<flat>`）；groupId 默认取其去掉最后一段 |
+| `-g, --group <gid>` | Maven groupId |
+| `-d, --db <dbname>` | 数据库名（默认 `<flat>_db`） |
+| `-P, --prefix <pfx>` | 配置前缀（yml 根 key + `@ConfigurationProperties`）与 docker 容器名前缀 |
+| `-f, --force` | 目标目录已存在且非空时，删除重建 |
+
+替换范围覆盖：`pom.xml`、Java 包目录与启动类/测试类文件、`application.yml`、
+`Makefile`、代码生成器与 `*.ftl` 模板、`docker-compose.yml`/`Dockerfile`、README 等；
+复制时自动排除 `.git/.idea/target/.m2home/*.iml/.env/HELP.md` 及脚本自身。
+替换按**最长 token 优先**，不会误伤库名、配置前缀、容器名等包含旧名前缀的词。
+
+生成后还需人工处理：
+
+1. `cd <新项目目录> && git init`；首次 `make test` 会自动选择 Maven 仓库位置（见「快速开始」）
+2. 创建脚本提示的新库，并导入**模板库的表结构**（模板不含建库/建表脚本）
+3. 微调 pom 描述、README 标题等业务措辞，yml 中的密钥按环境覆盖
+
+> 注意：`new-project.sh` 只保留在模板仓库，不会复制进新项目；若模板后续新增含旧名
+> 的字符串（如新业务模块名），需同步补充脚本内的替换 token 清单，否则会漏换。
+
 ## 快速开始
 
 ```bash
@@ -26,7 +73,9 @@ make help         # 全部命令
 
 - 健康检查：`GET /api/v1/health`（Security 白名单放行）
 - Swagger UI：`http://localhost:8080/swagger-ui.html`
-- 本地 Maven 仓库重定向到 `.m2home`（已 gitignore），沙箱/受限环境通用
+- **Maven 仓库自动选择**：默认用用户级 `~/.m2`（与其他项目/IDE 共用依赖，不重复下载）；
+  `~/.m2` 不可写（沙箱等受限环境）时自动回落项目内 `.m2home`（已 gitignore），
+  也可显式指定：`make run M2_HOME=/path/to/maven-user-home`
 
 ## 目录结构
 
@@ -104,7 +153,7 @@ fileOverride），只新建不存在的文件：
                 产出可运行的骨架：entity / mapper / service / controller / dto(VO+Req)
 ② 再做开发   → 在上面的骨架上写业务：
                 必做清单 1~5（改实体名/裁剪 DTO/补校验/调路径/注册白名单…）
-③ 验证编译   → ./mvnw -Dmaven.repo.local=.m2home/repository test
+③ 验证编译   → make test
 ④ 按域提交   → git add src/main/java/com/example/eshopplatform/<域> &&
                 git commit -m "feat(<域>): ..."
 ```

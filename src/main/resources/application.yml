@@ -119,15 +119,19 @@ springdoc:
   # - admin  管理端：管理员登录/登出 + 分类/商品/菜单/企业审核/充值档位/订单等后台接口
   # - public 公开/小程序端：公开浏览 + 微信登录/刷新/登出 + 我的（含我的企业/充值/订单）
   # group 为文档 URL 后缀（/v3/api-docs/{group}），display-name 为 Swagger UI 下拉显示名
-  group-configs:
-    - group: admin
-      display-name: 管理端
-      paths-to-match:
-        # - /api/v1/notification-templates/**
-    - group: public
-      display-name: 公开/小程序端
-      paths-to-match:
-        # - /api/v1/health
+  #
+  # 注意：springdoc 要求每个 group 至少配置 paths-to-match / packages-to-scan 之一，
+  # 空 group 会导致启动失败（Packages to scan or paths to filter ... can not be all null）。
+  # 当前无业务接口故整体注释；出现业务接口后取消注释并填入匹配路径即可启用分组：
+  # group-configs:
+  #   - group: admin
+  #     display-name: 管理端
+  #     paths-to-match:
+  #       - /api/v1/admin/**
+  #   - group: public
+  #     display-name: 公开/小程序端
+  #     paths-to-match:
+  #       - /api/v1/public/**
 
 # ---------- 6. Security（白名单 + CORS） ----------
 eshop:

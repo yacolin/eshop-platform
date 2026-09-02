@@ -5,10 +5,13 @@
 
 .PHONY: help run stop compile test build run-jar gen
 
-# Maven 调用：把 Maven 本地仓库重定向到工作区 .m2home（已 gitignore），
-# 受限环境（沙箱等无法写 ~/.m2）与正常开发环境同样适用；
-# 如需追加参数：make MVN_ARGS="-X" run
-MVN := MAVEN_USER_HOME=$(CURDIR)/.m2home ./mvnw -Dmaven.repo.local=$(CURDIR)/.m2home/repository
+# Maven 本地仓库位置（共享优先，受限环境回落）：
+#   默认使用用户级 ~/.m2 —— 与其他项目/IDE 共用依赖与 Maven 发行包，
+#   避免每个项目在 .m2home 里各自下载一遍（正常开发环境推荐）。
+#   若 ~/.m2 不可写（沙箱等受限环境），自动回落项目内 .m2home（已 gitignore）；
+#   也可显式指定：make run M2_HOME=/path/to/maven-user-home
+M2_HOME ?= $(shell { mkdir -p "$$HOME/.m2" 2>/dev/null && [ -w "$$HOME/.m2" ]; } && echo "$$HOME/.m2" || echo "$(CURDIR)/.m2home")
+MVN := MAVEN_USER_HOME=$(M2_HOME) ./mvnw -Dmaven.repo.local=$(M2_HOME)/repository
 JAR := target/eshop-platform-0.0.1-SNAPSHOT.jar
 
 # ---- 代码生成（MyBatis-Plus FastAutoGenerator，见 src/test/.../tool/CodeGenerator.java）----
