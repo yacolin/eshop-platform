@@ -30,6 +30,10 @@ import java.util.Map;
  * （类名已去 {@code usr_} 前缀，{@code @TableName} 仍为 {@code usr_users}），
  * 同域 dto 生成 {@code UsersVO / UsersReq} 等。
  *
+ * <p><b>重复运行安全</b>：生成器默认不覆盖已存在文件（未开启 fileOverride），
+ * 只新建缺失文件，已写好的业务改动不会被冲掉；模板/命名规则升级需先 git 提交、
+ * 删除旧文件后再重新生成，并以 diff 核对。
+ *
  * <p><b>运行方式</b>（生成器仅 test 作用域，勿放入主代码）：
  * <pre>
  *   # 1) 编译测试类（拉取 generator/freemarker 依赖）
