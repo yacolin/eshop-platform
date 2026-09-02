@@ -16,8 +16,9 @@ GEN_MAIN := com.example.eshopplatform.tool.CodeGenerator
 # build-classpath 输出的精确 test classpath 文件（target 已被 gitignore）
 GEN_CP := target/gen-classpath.txt
 # 用法：
-#   make gen                                  # 生成全部业务表（自动按表前缀分域）
-#   make gen GEN_TABLES="usr_users usr_infos" # 只生成指定表
+#   make gen                                    # 生成全部业务表（自动按表前缀分域）
+#   make gen DOMAIN=sp                          # 只生成 sp_ 域全部表（表多时一把梭）
+#   make gen GEN_TABLES="usr_users usr_infos"   # 只生成指定表（表少时用）
 #   make gen GEN_OPTS="-Ddb.password=xxx -Dgen.author=me"  # 覆盖数据库连接/作者
 
 help: ## 显示所有命令
@@ -41,7 +42,7 @@ build: ## 打包可执行 jar（跳过测试）
 run-jar: ## 运行已打包的 jar（需先 make build）
 	java -jar $(JAR)
 
-gen: ## 运行 MyBatis-Plus 代码生成器（GEN_TABLES=表名列表，缺省全表；GEN_OPTS=-Ddb.*/-Dgen.author）
+gen: ## 运行 MyBatis-Plus 代码生成器（DOMAIN=域前缀 整域；GEN_TABLES=表名列表；缺省全表；GEN_OPTS=-Ddb.*/-Dgen.author）
 	$(MVN) -q test-compile
 	$(MVN) -q dependency:build-classpath -DincludeScope=test -Dmdep.outputFile=$(GEN_CP)
-	java $(GEN_OPTS) -cp "target/classes:target/test-classes:$$(cat $(GEN_CP))" $(GEN_MAIN) $(GEN_TABLES)
+	java $(GEN_OPTS) -cp "target/classes:target/test-classes:$$(cat $(GEN_CP))" $(GEN_MAIN) $(if $(DOMAIN),$(DOMAIN),$(GEN_TABLES))

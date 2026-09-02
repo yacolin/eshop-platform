@@ -48,8 +48,9 @@ src/test/resources/templates/               # 自定义生成模板（service/co
 MyBatis-Plus 官方 FastAutoGenerator 3.5.17，用于消灭"手写 entity/mapper/service/controller 骨架"的机械劳动。
 
 ```bash
-make gen                                     # 生成全部业务表（按表前缀分域）
-make gen GEN_TABLES="sp_brands usr_users"    # 只生成指定表
+make gen                                        # 生成全部业务表（按表前缀分域）
+make gen DOMAIN=sp                              # 只生成 sp_ 域全部表（整域一把梭）
+make gen GEN_TABLES="sp_brands usr_users"       # 只生成指定表（表少时用）
 make gen GEN_OPTS="-Ddb.password=xxx -Dgen.author=me"   # 覆盖连接/作者
 ```
 

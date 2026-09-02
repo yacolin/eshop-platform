@@ -39,7 +39,8 @@ import java.util.Map;
  *   # 1) 编译测试类（拉取 generator/freemarker 依赖）
  *   ./mvnw -Dmaven.repo.local=.m2home/repository test-compile
  *   # 2) IDE 中运行本类的 main（IntelliJ 直接 Run 'CodeGenerator.main()'）
- *   #    不带参数 = 按前缀分组生成全表；带参数 = 只生成指定表，如：usr_users usr_addresses
+ *   #    不带参数 = 生成全部表（自动按表前缀分域）；
+ *   #    参数支持：域前缀（sp = 生成 sp_* 整域）/ 具体表名（usr_users usr_addresses），可混用
  *   #    数据库连接默认同 application.yml 开发配置，可用 -Ddb.url/-Ddb.username/-Ddb.password 覆盖
  * </pre>
  */
@@ -61,9 +62,11 @@ public class CodeGenerator {
         String password = System.getProperty("db.password", "123456");
         String author = System.getProperty("gen.author", "yacolin");
 
-        // 待生成表：未传参则取库中全部业务表
+        // 待生成表：未传参 = 全部业务表；参数支持两种：
+        //   1) 裸域前缀（无下划线，如 sp / usr）= 生成该域全部表（sp_*）
+        //   2) 具体表名（含下划线，如 sp_brands）= 只生成指定表
         List<String> tables = args.length > 0
-                ? List.of(args)
+                ? expandTables(url, username, password, List.of(args))
                 : listAllTables(url, username, password);
         System.out.println("待生成表(" + tables.size() + "): " + tables);
 
@@ -84,6 +87,27 @@ public class CodeGenerator {
     private static String moduleOf(String table) {
         int idx = table.indexOf('_');
         return idx > 0 ? table.substring(0, idx) : "";
+    }
+
+    /** 展开参数：裸域前缀（如 sp）展开为该前缀全部表；其余按具体表名保留 */
+    private static List<String> expandTables(String url, String user, String pass,
+                                             List<String> args) throws Exception {
+        List<String> all = listAllTables(url, user, pass);
+        List<String> result = new ArrayList<>();
+        for (String arg : args) {
+            if (arg.indexOf('_') < 0) { // 域前缀模式：sp -> sp_* 全部表
+                List<String> matched = all.stream()
+                        .filter(t -> t.startsWith(arg + "_"))
+                        .toList();
+                if (matched.isEmpty()) {
+                    System.out.println("!! 未找到前缀为 '" + arg + "_' 的表，已跳过");
+                }
+                result.addAll(matched);
+            } else {                    // 具体表名模式
+                result.add(arg);
+            }
+        }
+        return result.stream().distinct().toList();
     }
 
     /** 查库中全部表（排除视图） */
