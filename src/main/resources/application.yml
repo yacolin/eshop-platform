@@ -1,0 +1,147 @@
+# ============================================================================
+# eshop-platform 关键配置
+# 六类关键配置项：数据源 / Redis / MyBatis-Plus / 微信登录 / JWT / Security（白名单 + CORS）
+# 开发默认值与本机环境一致；生产环境请用环境变量或 profile
+# 覆盖敏感项（数据库密码、Redis 密码、JWT 密钥）。
+# ============================================================================
+spring:
+  application:
+    name: eshop-platform
+
+  # ---------- 1. 数据源（MySQL） ----------
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # 库名 eshop_db（本机已建好，直接连接）
+    url: jdbc:mysql://127.0.0.1:3306/eshop_db?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true
+    username: root
+    password: "123456" # 本机 Homebrew MySQL root 密码，生产用环境变量覆盖
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  # ---------- 2. Redis ----------
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      # password: ""    # 本机 Redis 无密码；有密码时填写（如 Redis 有密码则必须配置）
+      database: 0
+      timeout: 5s
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 0
+          max-wait: -1ms
+
+  # JSON 序列化统一格式
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+    default-property-inclusion: non_null
+
+server:
+  port: 8080
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+
+# ---------- 3. MyBatis-Plus ----------
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  # 实体别名包（按域追加，如 com.example.eshopplatform.usr.entity）
+  type-aliases-package: com.example.eshopplatform.prd.entity,com.example.eshopplatform.usr.entity
+  configuration:
+    # 驼峰命名映射：数据库下划线字段 <-> 实体驼峰属性（如 is_deleted <-> isDeleted）
+    map-underscore-to-camel-case: true
+    # SQL 日志打印（开发期用 StdOutImpl；生产建议改 org.apache.ibatis.logging.slf4j.Slf4jImpl 或留空关闭）
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    banner: false
+    db-config:
+      # 全局主键策略：assign_id = MyBatis-Plus 雪花 ID（业务表默认雪花，为分库分表留后路；
+      # 配置/枚举/账号类表在实体上用 @TableId(type = IdType.AUTO) 显式自增，
+      # 完整决策表见 db/README.md「主键 ID 策略」）
+      id-type: assign_id
+      # 全局逻辑删除（业务表统一 is_deleted：0-未删除, 1-已删除）
+      logic-delete-field: isDeleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# ---------- 4. 微信登录 ----------
+wechat:
+  # 小程序 AppID / AppSecret（开发期留空，用 mock openid 登录；生产用环境变量覆盖）
+  appid: ""
+  secret: ""
+  # 开发 mock：true 时跳过 code2session 真实调用，固定复用 mock-openid
+  # （wx.login() 的 code 是一次性随机值，不能拿它拼 openid，否则每次登录都会注册新用户）
+  mock-enabled: true
+  mock-openid: "mock_dev_user"
+  # 微信支付（P2 充值/下单）：开发期留空 = 未配置，充值走 mock-pay 直充；
+  # 生产配置完整后自动启用 JSAPI 下单与回调 notify（见 trd/wechat/WechatPayClient）
+  pay:
+    mch-id: "" # 商户号
+    api-v3-key: "" # API v3 密钥（回调 AES-GCM 解密）
+    private-key-path: "" # 商户 API 证书私钥（PKCS8 PEM）
+    mch-serial-no: "" # 商户 API 证书序列号
+    notify-url: "" # 支付回调公网地址（指向 /api/v1/wx/payments/notify）
+
+# ---------- 5. JWT ----------
+jwt:
+  # 签名密钥：Base64 编码（64 字符 = 384 bit，HS384；生产环境务必通过环境变量 JWT_SECRET 覆盖）
+  secret: "Iyh/J3RcrpgUbprqYJmbNC6YV5DXAV9q9AUsKuXn7HQ82fNXFakPWoCYWdZuDEbs"
+  # Access Token 过期时间（秒）：2 小时
+  access-token-expire-seconds: 7200
+  # Refresh Token 过期时间（秒）：7 天
+  refresh-token-expire-seconds: 604800
+  # 请求头名称与 Bearer 前缀
+  header: Authorization
+  prefix: "Bearer "
+
+# ---------- 接口文档（springdoc-openapi / Swagger UI） ----------
+# 暂无业务接口，仅保留基础配置（Swagger UI 当前只展示 /api/v1/health 等基础设施接口）；
+# 接口按端分组（group-configs）待业务接口出现后随文档提交补充
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+
+# ---------- 6. Security（白名单 + CORS） ----------
+eshop:
+  security:
+    # 无需认证即可访问的路径：目前仅基础设施（错误页 / 健康检查 / 接口文档）；
+    # 业务接口（登录、公开浏览等）暂无，待对应业务域实现时按路径补入
+    whitelist:
+      - /error
+      - /api/v1/health
+      - /v3/api-docs/**
+      - /swagger-ui/**
+      - /swagger-ui.html
+    # 管理端路径：仅后台管理员（/api/v1/auth/login 登录签发 token，user_type=1）可访问；
+    # 暂无管理端接口，待对应业务域实现时按路径补入
+    admin-paths: []
+    cors:
+      # 开发期放开；生产改为小程序/后台实际域名列表
+      allowed-origins:
+        - "*"
+      allowed-methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+      allowed-headers:
+        - "*"
+      exposed-headers:
+        - Authorization
+      # 携带凭证（cookie）时 allowed-origins 不能为 *，需显式列域名
+      allow-credentials: false
+      max-age: 3600
