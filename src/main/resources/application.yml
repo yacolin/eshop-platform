@@ -64,10 +64,12 @@ mybatis-plus:
   global-config:
     banner: false
     db-config:
-      # 全局主键策略：assign_id = MyBatis-Plus 雪花 ID（业务表默认雪花，为分库分表留后路；
-      # 配置/枚举/账号类表在实体上用 @TableId(type = IdType.AUTO) 显式自增，
-      # 完整决策表见 db/README.md「主键 ID 策略」）
-      id-type: assign_id
+      # 主键策略不做全局强制，由开发者按实体用 @TableId 自行配置：
+      # - eshop_db 表均为自增主键，代码生成器会按库自动生成
+      #   @TableId(type = IdType.AUTO)；需要雪花/其它策略时在实体注解上覆盖即可
+      # - 注意：实体未标 @TableId 时 MyBatis-Plus 默认按雪花(ASSIGN_ID)插入，
+      #   手写新实体时记得显式标注主键策略
+      # id-type: assign_id
       # 全局逻辑删除（业务表统一 is_deleted：0-未删除, 1-已删除）
       logic-delete-field: isDeleted
       logic-delete-value: 1
