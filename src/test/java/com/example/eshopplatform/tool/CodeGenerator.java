@@ -60,7 +60,8 @@ public class CodeGenerator {
                         + "&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true");
         String username = System.getProperty("db.username", "root");
         String password = System.getProperty("db.password", "123456");
-        String author = System.getProperty("gen.author", "yacolin");
+        // 类注释作者：默认留空（不输出 @author），需要时用 -Dgen.author=xxx 指定
+        String author = System.getProperty("gen.author", "");
 
         // 待生成表：未传参 = 全部业务表；参数支持两种：
         //   1) 裸域前缀（无下划线，如 sp / usr）= 生成该域全部表（sp_*）
@@ -162,7 +163,8 @@ public class CodeGenerator {
                     }
                     builder.entityBuilder()
                             .enableLombok()                 // 实体用 Lombok（省 getter/setter）
-                            .enableTableFieldAnnotation();   // 字段一律 @TableField，杜绝命名歧义
+                            .enableTableFieldAnnotation()   // 字段一律 @TableField，杜绝命名歧义
+                            .javaTemplate("templates/entity.java"); // 接管默认模板（@author 留空）
                     builder.controllerBuilder()
                             .enableRestStyle()          // @RestController（RESTful）
                             .template("templates/controller.java")  // 自定义基础 CRUD 模板
@@ -178,6 +180,7 @@ public class CodeGenerator {
                             .disableMapperXml()
                             // 工程约定：Mapper 接口加 @Mapper 注解（无 @MapperScan）
                             .enableMapperAnnotation()
+                            .mapperTemplate("templates/mapper.java")   // 接管默认模板（@author 留空）
                             .formatMapperFileName("%sMapper");
                 })
                 // DTO：每个业务域一个 dto 包，每表生成 <实体>VO / <实体>Req

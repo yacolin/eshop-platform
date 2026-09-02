@@ -1,4 +1,10 @@
 package ${package.Service};
+<#function escJd s>
+    <#return s?replace("\r", " ")?replace("\n", " ")?replace("*/", "* /")>
+</#function>
+<#function escStr s>
+    <#return s?replace("\\", "\\\\")?replace("\"", "\\\"")?replace("\r", " ")?replace("\n", " ")?replace("*/", "* /")>
+</#function>
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -13,15 +19,15 @@ import org.springframework.stereotype.Service;
 
 /**
  * <p>
- * ${table.comment!}服务
+ * ${escJd(table.comment!)}服务
  * </p>
  *
  * <p>工程约定：Service 为具体类（不生成接口与 *ServiceImpl），直接注入 Mapper；
  * 入参/出参走 DTO（Req/VO），entity↔dto 的 toVO/apply 由生成器自动补齐。
  * 以下为基础 CRUD，接入真实业务时按需加查询条件、校验与权限逻辑。</p>
  *
- * @author ${author}
- * @since ${date}
+<#if author?? && author != ""> * @author ${author}
+</#if> * @since ${date}
  */
 @Service
 @RequiredArgsConstructor
@@ -69,7 +75,7 @@ public class ${table.serviceName} {
     private ${table.entityName} require(Long id) {
         ${table.entityName} entity = ${table.entityName?uncap_first}Mapper.selectById(id);
         if (entity == null) {
-            throw BizException.notFound("${table.comment!}不存在");
+            throw BizException.notFound("${escStr(table.comment!)}不存在");
         }
         return entity;
     }

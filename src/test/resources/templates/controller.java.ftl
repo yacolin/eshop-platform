@@ -1,4 +1,10 @@
 package ${package.Controller};
+<#function escJd s>
+    <#return s?replace("\r", " ")?replace("\n", " ")?replace("*/", "* /")>
+</#function>
+<#function escStr s>
+    <#return s?replace("\\", "\\\\")?replace("\"", "\\\"")?replace("\r", " ")?replace("\n", " ")?replace("*/", "* /")>
+</#function>
 
 import com.example.eshopplatform.common.ApiResponse;
 import com.example.eshopplatform.common.PageResult;
@@ -25,7 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * <p>
- * ${table.comment!}基础 CRUD 接口（模板生成）
+ * ${escJd(table.comment!)}基础 CRUD 接口（模板生成）
  * </p>
  *
  * <p>默认路径按“表名去前缀 + 短横线”生成（如 sp_brands → /api/v1/brands）。
@@ -33,10 +39,10 @@ import org.springframework.web.bind.annotation.RestController;
  * 裁剪校验、接口按端分组补 springdoc @Tag，并把真实路径补入 application.yml
  * 的 whitelist/admin-paths。</p>
  *
- * @author ${author}
- * @since ${date}
+<#if author?? && author != ""> * @author ${author}
+</#if> * @since ${date}
  */
-@Tag(name = "${table.entityName}Crud", description = "${table.comment!}基础 CRUD")
+@Tag(name = "${table.entityName}Crud", description = "${escStr(table.comment!)}基础 CRUD")
 @RestController
 @RequestMapping("/api/v1/${restPath}")
 @RequiredArgsConstructor
@@ -44,7 +50,7 @@ public class ${table.controllerName} {
 
     private final ${table.serviceName} ${table.serviceName?uncap_first};
 
-    @Operation(summary = "分页查询${table.comment!}")
+    @Operation(summary = "分页查询${escStr(table.comment!)}")
     @GetMapping
     public ApiResponse<PageResult<${table.entityName}VO>> page(
             @RequestParam(defaultValue = "1") int page,
@@ -52,26 +58,26 @@ public class ${table.controllerName} {
         return ApiResponse.ok(${table.serviceName?uncap_first}.page(page, size));
     }
 
-    @Operation(summary = "查询${table.comment!}详情")
+    @Operation(summary = "查询${escStr(table.comment!)}详情")
     @GetMapping("/{id}")
     public ApiResponse<${table.entityName}VO> get(@PathVariable Long id) {
         return ApiResponse.ok(${table.serviceName?uncap_first}.getById(id));
     }
 
-    @Operation(summary = "新增${table.comment!}")
+    @Operation(summary = "新增${escStr(table.comment!)}")
     @PostMapping
     public ApiResponse<${table.entityName}VO> create(@RequestBody ${table.entityName}Req req) {
         return ApiResponse.ok(${table.serviceName?uncap_first}.create(req));
     }
 
-    @Operation(summary = "更新${table.comment!}")
+    @Operation(summary = "更新${escStr(table.comment!)}")
     @PutMapping("/{id}")
     public ApiResponse<${table.entityName}VO> update(@PathVariable Long id,
                                                      @RequestBody ${table.entityName}Req req) {
         return ApiResponse.ok(${table.serviceName?uncap_first}.update(id, req));
     }
 
-    @Operation(summary = "删除${table.comment!}")
+    @Operation(summary = "删除${escStr(table.comment!)}")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         ${table.serviceName?uncap_first}.delete(id);

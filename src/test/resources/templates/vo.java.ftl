@@ -1,4 +1,10 @@
 package ${dtoPkg};
+<#function escJd s>
+    <#return s?replace("\r", " ")?replace("\n", " ")?replace("*/", "* /")>
+</#function>
+<#function escStr s>
+    <#return s?replace("\\", "\\\\")?replace("\"", "\\\"")?replace("\r", " ")?replace("\n", " ")?replace("*/", "* /")>
+</#function>
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
@@ -12,24 +18,26 @@ import java.util.List;
 
 /**
  * <p>
- * ${table.comment!}视图对象（VO）
+ * ${escJd(table.comment!)}视图对象（VO）
  * </p>
  *
  * <p>由代码生成器生成的基础 DTO：字段与表结构一致；接入真实接口时按业务裁剪
  * （隐藏内部字段、时间转 epoch 毫秒等）。</p>
  *
- * @author ${author}
- * @since ${date}
+<#if author?? && author != ""> * @author ${author}
+</#if> * @since ${date}
  */
 @Data
-@Schema(description = "${table.comment!}VO")
+@Schema(description = "${escStr(table.comment!)}VO")
 public class ${table.entityName}VO {
 <#list table.fields as field>
-<#if field.comment!?length gt 0>
+<#if field_index gt 0>
 
-    /** ${field.comment} */
 </#if>
-    @Schema(description = "${field.comment!''}")
+<#if field.comment!?length gt 0>
+    /** ${escJd(field.comment)} */
+    @Schema(description = "${escStr(field.comment!)}")
+</#if>
     private ${field.propertyType} ${field.propertyName};
 </#list>
 }
