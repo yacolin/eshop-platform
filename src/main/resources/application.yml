@@ -115,6 +115,19 @@ springdoc:
     path: /swagger-ui.html
     tags-sorter: alpha
     operations-sorter: alpha
+  # 按端分组输出 OpenAPI JSON（前端请求文件生成按组拉取，见 README「接口分组与前端请求文件生成」）：
+  # - admin  管理端：管理员登录/登出 + 分类/商品/菜单/企业审核/充值档位/订单等后台接口
+  # - public 公开/小程序端：公开浏览 + 微信登录/刷新/登出 + 我的（含我的企业/充值/订单）
+  # group 为文档 URL 后缀（/v3/api-docs/{group}），display-name 为 Swagger UI 下拉显示名
+  group-configs:
+    - group: admin
+      display-name: 管理端
+      paths-to-match:
+        # - /api/v1/notification-templates/**
+    - group: public
+      display-name: 公开/小程序端
+      paths-to-match:
+        # - /api/v1/health
 
 # ---------- 6. Security（白名单 + CORS） ----------
 eshop:
@@ -122,6 +135,8 @@ eshop:
     # 无需认证即可访问的路径：目前仅基础设施（错误页 / 健康检查 / 接口文档）；
     # 业务接口（登录、公开浏览等）暂无，待对应业务域实现时按路径补入
     whitelist:
+      # - /api/v1/notification-templates/**
+
       - /error
       - /api/v1/health
       - /v3/api-docs/**

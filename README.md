@@ -97,6 +97,21 @@ fileOverride），只新建不存在的文件：
    `eshop.security.whitelist` / `admin-paths`（否则 Security 默认拦截返回 403）
 5. 时间字段在 VO 中转为 epoch 毫秒时间戳、核对逻辑删除字段等
 
+**推荐编码流程（每个业务域都按这个顺序）**：
+
+```
+① 先生成样板 → make gen DOMAIN=<域>（或 GEN_TABLES="表1 表2"）
+                产出可运行的骨架：entity / mapper / service / controller / dto(VO+Req)
+② 再做开发   → 在上面的骨架上写业务：
+                必做清单 1~5（改实体名/裁剪 DTO/补校验/调路径/注册白名单…）
+③ 验证编译   → ./mvnw -Dmaven.repo.local=.m2home/repository test
+④ 按域提交   → git add src/main/java/com/example/eshopplatform/<域> &&
+                git commit -m "feat(<域>): ..."
+```
+
+> 规则：**先 `make gen` 生成样板代码，再在此基础上开发**——不要在生成前手写
+> entity/mapper/service 等机械代码；样板生成后已被手改的文件，重复生成也不会被覆盖。
+
 ## mapper.xml 使用说明
 
 **现状**：项目刻意**不生成 mapper.xml**，SQL 一律走 MyBatis-Plus 的 Wrapper / Mapper 注解，
