@@ -23,11 +23,12 @@ import java.util.Map;
  * （类名单复数、Req/VO 字段裁剪与校验、controller 路径/权限与统一返回
  * {@code ApiResponse} 等业务化改造）。
  *
- * <p><b>包结构约定</b>（工程约定）：表前缀 = 业务域模块，
+ * <p><b>包结构约定</b>（工程约定）：表前缀 = 业务域模块；**类名去掉前缀**（域已由包表达），
  * 生成到 {@code com.example.eshopplatform.<前缀>} 下的 entity / mapper / service /
  * controller / dto。
- * 例如 {@code usr_users} → 前缀 {@code usr} → {@code com.example.eshopplatform.usr.entity.UsrUsers}
- * + {@code com.example.eshopplatform.usr.dto.UsrUsersVO / UsrUsersReq} 等。
+ * 例如 {@code usr_users} → 前缀 {@code usr} → {@code com.example.eshopplatform.usr.entity.Users}
+ * （类名已去 {@code usr_} 前缀，{@code @TableName} 仍为 {@code usr_users}），
+ * 同域 dto 生成 {@code UsersVO / UsersReq} 等。
  *
  * <p><b>运行方式</b>（生成器仅 test 作用域，勿放入主代码）：
  * <pre>
@@ -124,27 +125,33 @@ public class CodeGenerator {
                         builder.moduleName(module);
                     }
                 })
-                .strategyConfig(builder -> builder
-                        .addInclude(tables.toArray(new String[0]))
-                        .entityBuilder()
-                        .enableLombok()                 // 实体用 Lombok（省 getter/setter）
-                        .enableTableFieldAnnotation()   // 字段一律 @TableField，杜绝命名歧义
-                        .controllerBuilder()
-                        .enableRestStyle()          // @RestController（RESTful）
-                        .template("templates/controller.java")  // 自定义基础 CRUD 模板
-                        .formatFileName("%sController")
-                        .serviceBuilder()
-                        // 工程约定：Service 为具体类，不生成接口与 *ServiceImpl；
-                        // 用自定义模板输出 @Service + 注入 Mapper（src/test/resources/templates/service.java.ftl）
-                        .disableServiceImpl()
-                        .serviceTemplate("templates/service.java")
-                        .formatServiceFileName("%sService")
-                        .mapperBuilder()
-                        // 工程约定：不生成 mapper.xml（SQL 用 Wrapper/注解）
-                        .disableMapperXml()
-                        // 工程约定：Mapper 接口加 @Mapper 注解（无 @MapperScan）
-                        .enableMapperAnnotation()
-                        .formatMapperFileName("%sMapper"))
+                // 命名：按模块去掉表前缀（类名不再带 sp/usr 等域前缀，如 sp_brands -> Brands，
+                // @TableName 仍保留原表名 sp_brands）
+                .strategyConfig(builder -> {
+                    builder.addInclude(tables.toArray(new String[0]));
+                    if (!module.isEmpty()) {
+                        builder.addTablePrefix(module + "_");
+                    }
+                    builder.entityBuilder()
+                            .enableLombok()                 // 实体用 Lombok（省 getter/setter）
+                            .enableTableFieldAnnotation();   // 字段一律 @TableField，杜绝命名歧义
+                    builder.controllerBuilder()
+                            .enableRestStyle()          // @RestController（RESTful）
+                            .template("templates/controller.java")  // 自定义基础 CRUD 模板
+                            .formatFileName("%sController");
+                    builder.serviceBuilder()
+                            // 工程约定：Service 为具体类，不生成接口与 *ServiceImpl；
+                            // 用自定义模板输出 @Service + 注入 Mapper（src/test/resources/templates/service.java.ftl）
+                            .disableServiceImpl()
+                            .serviceTemplate("templates/service.java")
+                            .formatServiceFileName("%sService");
+                    builder.mapperBuilder()
+                            // 工程约定：不生成 mapper.xml（SQL 用 Wrapper/注解）
+                            .disableMapperXml()
+                            // 工程约定：Mapper 接口加 @Mapper 注解（无 @MapperScan）
+                            .enableMapperAnnotation()
+                            .formatMapperFileName("%sMapper");
+                })
                 // DTO：每个业务域一个 dto 包，每表生成 <实体>VO / <实体>Req
                 .injectionConfig(builder -> {
                     // 供模板拼包名用：com.example.eshopplatform[.<模块>].dto

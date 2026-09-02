@@ -67,16 +67,21 @@ dto/<实体>Req.java           # create/update 入参（不含主键）
 **工程约定**：
 
 - Service 为**具体类**（`@Service` + `@RequiredArgsConstructor` + 注入 Mapper），不生成接口与 `*ServiceImpl`
-- Controller 为 `@RestController`，端点 `GET/POST/PUT/DELETE /api/v1/<域>/<实体>...`，统一返回
-  `ApiResponse` / `PageResult`，带 `@Operation`
+- 类名**去掉域前缀**（域由包名表达）：`sp_brands` → 实体 `Brands`（`@TableName` 仍为 `sp_brands`），
+  mapper/service/controller/dto 均无前缀（`BrandsMapper`/`BrandsService`/`BrandsController`/`BrandsVO`/`BrandsReq`）
+- Controller 为 `@RestController`，路径规则 = **表名去域前缀 + 下划线转短横线（保留复数）**，
+  如 `sp_brands` → `/api/v1/brands`、`sp_product_attributes` → `/api/v1/product-attributes`；
+  端点 `GET/POST/PUT/DELETE` 统一返回 `ApiResponse` / `PageResult`，带 `@Operation`
 - CRUD 出入参走 DTO（Req/VO），`toVO` / `apply` 字段映射由模板自动生成
 - **不生成 mapper.xml**（见下节）
 
 **生成后的必做清单**（机械骨架之外的人工部分）：
 
-1. 实体类名单数化（如 `usr_users` → 类 `UsrUser`，当前生成 `UsrUsers`）并保留 `@TableName`
+1. 实体类名已按规则**去掉域前缀**（`usr_users` → 类 `Users`，`@TableName` 仍为 `usr_users`）；
+   如需单数类名（`Users` → `User`）直接改名并保留 `@TableName`
 2. Req/VO 按接口用例裁剪字段、补校验注解（`@NotNull`/`@NotBlank` 等）
-3. Controller 路径按业务命名（默认 `/api/v1/<域>/<实体>` 仅为占位）
+3. Controller 路径默认已按规则生成（`/api/v1/brands` 等）；遇子资源/嵌套接口（如
+   `/api/v1/brands/{id}/xxx`）或跨模块重名时，手动改成更精确的业务路径
 4. 按接口端（公开/管理端）补 springdoc 分组 `@Tag`，并把真实路径补入 `application.yml` 的
    `eshop.security.whitelist` / `admin-paths`（否则 Security 默认拦截返回 403）
 5. 时间字段在 VO 中转为 epoch 毫秒时间戳、核对逻辑删除字段等
@@ -101,16 +106,16 @@ mybatis-plus:
 1. **注解式（推荐先用）**——直接在 Mapper 接口写：
    ```java
    @Mapper
-   public interface SpBrandsMapper extends BaseMapper<SpBrands> {
+   public interface BrandsMapper extends BaseMapper<Brands> {
        @Select("SELECT * FROM sp_brands WHERE name LIKE CONCAT('%', #{kw}, '%')")
-       List<SpBrands> search(@Param("kw") String kw);
+       List<Brands> search(@Param("kw") String kw);
    }
    ```
 2. **XML 式**——自建 `src/main/resources/mapper/<实体>Mapper.xml`，namespace 写 Mapper
    接口全限定名，接口上加对应方法声明：
    ```xml
-   <mapper namespace="com.example.eshopplatform.sp.mapper.SpBrandsMapper">
-       <select id="search" resultType="com.example.eshopplatform.sp.entity.SpBrands">
+   <mapper namespace="com.example.eshopplatform.sp.mapper.BrandsMapper">
+       <select id="search" resultType="com.example.eshopplatform.sp.entity.Brands">
            SELECT * FROM sp_brands WHERE name LIKE CONCAT('%', #{kw}, '%')
        </select>
    </mapper>
