@@ -1,7 +1,6 @@
 package com.example.eshopplatform.tool;
 
 import com.baomidou.mybatisplus.generator.FastAutoGenerator;
-import com.baomidou.mybatisplus.generator.config.OutputFile;
 import com.baomidou.mybatisplus.generator.engine.FreemarkerTemplateEngine;
 
 import java.io.File;
@@ -10,7 +9,6 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,14 +16,18 @@ import java.util.Map;
 /**
  * MyBatis-Plus 代码生成器（官方 FastAutoGenerator，3.5.x）。
  *
- * <p><b>作用</b>：连上 eshop_db 按表生成 entity / mapper / service / controller / mapper.xml，
- * 消灭手写 CRUD 骨架的机械劳动；Service 与 lease-platform 一致输出为具体类
- * （不生成接口与 *ServiceImpl），生成后仍需人工核对（类名单复数、逻辑删除字段、
- * controller 业务方法与统一返回 {@code ApiResponse} 等业务化改造）。
+ * <p><b>作用</b>：连上 eshop_db 按表生成 entity / mapper / service / controller / dto（不含
+ * mapper.xml：SQL 走 MyBatis-Plus Wrapper/注解，不用 XML 文件），
+ * 消灭手写 CRUD 骨架的机械劳动；Service 为具体类（不生成接口与 *ServiceImpl，
+ * 入参出参走 dto 的 Req/VO），生成后仍需人工核对
+ * （类名单复数、Req/VO 字段裁剪与校验、controller 路径/权限与统一返回
+ * {@code ApiResponse} 等业务化改造）。
  *
- * <p><b>包结构约定</b>（与 lease-platform 一致）：表前缀 = 业务域模块，
- * 生成到 {@code com.example.eshopplatform.<前缀>} 下的 entity / mapper / service / controller。
- * 例如 {@code usr_users} → 前缀 {@code usr} → {@code com.example.eshopplatform.usr.entity.UsrUsers} 等。
+ * <p><b>包结构约定</b>（工程约定）：表前缀 = 业务域模块，
+ * 生成到 {@code com.example.eshopplatform.<前缀>} 下的 entity / mapper / service /
+ * controller / dto。
+ * 例如 {@code usr_users} → 前缀 {@code usr} → {@code com.example.eshopplatform.usr.entity.UsrUsers}
+ * + {@code com.example.eshopplatform.usr.dto.UsrUsersVO / UsrUsersReq} 等。
  *
  * <p><b>运行方式</b>（生成器仅 test 作用域，勿放入主代码）：
  * <pre>
@@ -44,9 +46,6 @@ public class CodeGenerator {
     /** 主代码根目录：src/main/java（产物直接落盘，生成后 diff 检查再提交） */
     private static final String JAVA_DIR =
             new File("").getAbsolutePath() + "/src/main/java";
-    /** mapper.xml 输出目录（对应 mybatis-plus.mapper-locations: classpath*:/mapper/**&#47;*.xml） */
-    private static final String MAPPER_XML_DIR =
-            new File("").getAbsolutePath() + "/src/main/resources/mapper";
 
     public static void main(String[] args) throws Exception {
         // 数据库连接：默认与 src/main/resources/application.yml 开发配置一致，可用系统属性覆盖
@@ -72,7 +71,7 @@ public class CodeGenerator {
         for (Map.Entry<String, List<String>> e : byModule.entrySet()) {
             generateModule(url, username, password, author, e.getKey(), e.getValue());
         }
-        System.out.println("生成完成。产物目录：\n  " + JAVA_DIR + "\n  " + MAPPER_XML_DIR
+        System.out.println("生成完成。产物目录：\n  " + JAVA_DIR
                 + "\n请 diff 检查后按业务域分批提交（勿把整个生成结果一次提交）。");
     }
 
@@ -120,9 +119,7 @@ public class CodeGenerator {
                         .disableOpenDir())
                 // 包结构：com.example.eshopplatform.<module>.{entity,mapper,service,controller}
                 .packageConfig(builder -> {
-                    builder.parent(PARENT_PACKAGE)
-                            // mapper.xml 单独落到 src/main/resources/mapper（对应 mapper-locations 配置）
-                            .pathInfo(Collections.singletonMap(OutputFile.xml, MAPPER_XML_DIR));
+                    builder.parent(PARENT_PACKAGE);
                     if (!module.isEmpty()) {
                         builder.moduleName(module);
                     }
@@ -133,16 +130,37 @@ public class CodeGenerator {
                         .enableLombok()                 // 实体用 Lombok（省 getter/setter）
                         .enableTableFieldAnnotation()   // 字段一律 @TableField，杜绝命名歧义
                         .controllerBuilder()
-                        .enableRestStyle()          // @RestController + RESTful 路径（契合本项目 API 风格）
+                        .enableRestStyle()          // @RestController（RESTful）
+                        .template("templates/controller.java")  // 自定义基础 CRUD 模板
                         .formatFileName("%sController")
                         .serviceBuilder()
-                        // 与 lease-platform 一致：Service 为具体类，不生成接口与 *ServiceImpl；
+                        // 工程约定：Service 为具体类，不生成接口与 *ServiceImpl；
                         // 用自定义模板输出 @Service + 注入 Mapper（src/test/resources/templates/service.java.ftl）
                         .disableServiceImpl()
                         .serviceTemplate("templates/service.java")
                         .formatServiceFileName("%sService")
                         .mapperBuilder()
+                        // 工程约定：不生成 mapper.xml（SQL 用 Wrapper/注解）
+                        .disableMapperXml()
+                        // 工程约定：Mapper 接口加 @Mapper 注解（无 @MapperScan）
+                        .enableMapperAnnotation()
                         .formatMapperFileName("%sMapper"))
+                // DTO：每个业务域一个 dto 包，每表生成 <实体>VO / <实体>Req
+                .injectionConfig(builder -> {
+                    // 供模板拼包名用：com.example.eshopplatform[.<模块>].dto
+                    String dtoPkg = PARENT_PACKAGE + (module.isEmpty() ? "" : "." + module) + ".dto";
+                    builder.customMap(java.util.Map.of("dtoPkg", dtoPkg));
+                    builder.customFile(cf -> cf
+                            .formatNameFunction(t -> t.getEntityName())
+                            .fileName("VO.java")
+                            .packageName("dto")
+                            .templatePath("templates/vo.java.ftl"));
+                    builder.customFile(cf -> cf
+                            .formatNameFunction(t -> t.getEntityName())
+                            .fileName("Req.java")
+                            .packageName("dto")
+                            .templatePath("templates/req.java.ftl"));
+                })
                 .templateEngine(new FreemarkerTemplateEngine())
                 .execute();
     }
