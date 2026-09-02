@@ -75,6 +75,20 @@
             <version>${mybatis-plus.version}</version>
         </dependency>
 
+        <!-- MyBatis-Plus 代码生成器（开发期工具）：FastAutoGenerator + Freemarker 模板引擎，
+             仅 test 作用域（不进入运行 jar），由 src/test 下的 CodeGenerator 主类按需执行 -->
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-generator</artifactId>
+            <version>${mybatis-plus.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.freemarker</groupId>
+            <artifactId>freemarker</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- JSON 处理（ObjectMapper 序列化规格选项等；SB4 的 webmvc starter 不含 Jackson 自动配置） -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
