@@ -70,10 +70,15 @@ mybatis-plus:
       # - 注意：实体未标 @TableId 时 MyBatis-Plus 默认按雪花(ASSIGN_ID)插入，
       #   手写新实体时记得显式标注主键策略
       # id-type: assign_id
-      # 全局逻辑删除（业务表统一 is_deleted：0-未删除, 1-已删除）
-      logic-delete-field: isDeleted
-      logic-delete-value: 1
-      logic-not-delete-value: 0
+      # 逻辑删除走实体注解 @TableLogic（与代码生成器模板一致）：
+      # eshop_db 约定 deleted_at datetime NULL=未删除，实体上标
+      #   @TableLogic(value = "null", delval = "now()")
+      # 删除自动转 UPDATE deleted_at=now()，查询自动带 deleted_at IS NULL。
+      # 不做全局 logic-delete-field 配置（全局配置只匹配属性名为 isDeleted 的整型列，
+      # 与库内 deleted_at 约定不符）；无 deleted_at 列的表（流水/记录表）即物理删除。
+      # logic-delete-field: isDeleted
+      # logic-delete-value: 1
+      # logic-not-delete-value: 0
 
 # ---------- 4. 微信登录 ----------
 wechat:
