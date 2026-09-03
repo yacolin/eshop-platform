@@ -123,15 +123,20 @@ springdoc:
   # 注意：springdoc 要求每个 group 至少配置 paths-to-match / packages-to-scan 之一，
   # 空 group 会导致启动失败（Packages to scan or paths to filter ... can not be all null）。
   # 当前无业务接口故整体注释；出现业务接口后取消注释并填入匹配路径即可启用分组：
-  # group-configs:
-  #   - group: admin
-  #     display-name: 管理端
-  #     paths-to-match:
-  #       - /api/v1/admin/**
-  #   - group: public
-  #     display-name: 公开/小程序端
-  #     paths-to-match:
-  #       - /api/v1/public/**
+  group-configs:
+    - group: admin
+      display-name: 管理端
+      paths-to-match:
+        - /api/v1/admin/**
+        - /api/v1/auth/login
+        - /api/v1/auth/logout
+        - /api/v1/auth/refresh
+    - group: public
+      display-name: 公开/小程序端
+      paths-to-match:
+        - /api/v1/health
+        - /api/v1/public/**
+        - /api/v1/brands/**
 
 # ---------- 6. Security（白名单 + CORS） ----------
 eshop:
@@ -142,10 +147,14 @@ eshop:
       # - /api/v1/notification-templates/**
 
       - /error
-      - /api/v1/health
+
       - /v3/api-docs/**
       - /swagger-ui/**
       - /swagger-ui.html
+
+      - /api/v1/health
+      - /api/v1/brands/**
+
     # 管理端路径：仅后台管理员（/api/v1/auth/login 登录签发 token，user_type=1）可访问；
     # 暂无管理端接口，待对应业务域实现时按路径补入
     admin-paths: []
