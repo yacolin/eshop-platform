@@ -103,26 +103,44 @@ make gen GEN_TABLES="sp_brands usr_users"       # 只生成指定表（表少时
 make gen GEN_OPTS="-Ddb.password=xxx -Dgen.author=me"   # 覆盖连接/作者
 ```
 
-**每表产出 6 个文件**（表前缀 → 业务域包，如 `sp_brands` → `com.example.eshopplatform.sp`）：
+**每表产出 7 个文件**（表前缀 → 业务域包，如 `sp_brands` → `com.example.eshopplatform.sp`）：
 
 ```
 entity/<实体>.java           # @TableName + Lombok + @TableField
 mapper/<实体>Mapper.java     # @Mapper（无 @MapperScan，靠注解注册）
 service/<实体>Service.java   # 具体类（无接口、无 *ServiceImpl）
 controller/<实体>Controller.java  # @RestController + 基础 CRUD 端点
-dto/<实体>VO.java            # 响应对象（全字段 @Data + @Schema）
-dto/<实体>Req.java           # create/update 入参（不含主键）
+dto/<实体>VO.java            # 响应对象（deleted_at 不暴露；时间列 Long epoch 毫秒）
+dto/<实体>CreateReq.java     # 新增入参（不含主键与自动列；DB 必填列带空校验，String 带 DB 长度上限校验）
+dto/<实体>UpdateReq.java     # 更新入参（同 CreateReq 的自动列/校验规则）
 ```
 
 **工程约定**：
 
 - Service 为**具体类**（`@Service` + `@RequiredArgsConstructor` + 注入 Mapper），不生成接口与 `*ServiceImpl`
 - 类名**去掉域前缀**（域由包名表达）：`sp_brands` → 实体 `Brands`（`@TableName` 仍为 `sp_brands`），
-  mapper/service/controller/dto 均无前缀（`BrandsMapper`/`BrandsService`/`BrandsController`/`BrandsVO`/`BrandsReq`）
+  mapper/service/controller/dto 均无前缀（`BrandsMapper`/`BrandsService`/`BrandsController`/
+  `BrandsVO`/`BrandsCreateReq`/`BrandsUpdateReq`）
 - Controller 为 `@RestController`，路径规则 = **表名去域前缀 + 下划线转短横线（保留复数）**，
   如 `sp_brands` → `/api/v1/brands`、`sp_product_attributes` → `/api/v1/product-attributes`；
-  端点 `GET/POST/PUT/DELETE` 统一返回 `ApiResponse` / `PageResult`，带 `@Operation`
-- CRUD 出入参走 DTO（Req/VO），`toVO` / `apply` 字段映射由模板自动生成
+  端点 `GET/POST/PUT/DELETE` 统一返回 `ApiResponse` / `PageResult`，带 `@Operation`；
+  写接口请求体带 `@Valid`（触发 DTO 校验注解）
+- CRUD 出入参走 DTO（CreateReq/UpdateReq/VO），`toVO` / `apply` 字段映射由模板自动生成；
+  `apply` 只落业务字段（created_at/updated_at/deleted_at 等自动列绝不赋值），
+  VO 时间列由 `toVO` 用 `TimeUtil.toEpochMillis` 转 Long（epoch 毫秒）返回
+- **Service 语义约定**（模板注释已写死，勿各模块写歪）：
+  - `apply` 传**整个 Req DTO**（不学逐个字段传参的长参数风格）；要"null 兜默认值"时在
+    apply 内对该字段显式兜底即可
+  - `update` 为 **DTO 覆盖语义**：MP 默认 NOT_NULL 策略，req 中 null 字段不生成 SET、
+    保留原值（非全量重置）；做"传 null=重置默认"语义需自行兜底
+  - `delete` 默认**逻辑删除**：表含 `deleted_at`（datetime，NULL=未删除）时实体该字段自动标
+    `@TableLogic(value="null", delval="now()")`，`deleteById` 转 `SET deleted_at=now()`、
+    普通查询自动带 `deleted_at IS NULL`；只有无该列的表（流水/记录表）才是物理删除。
+    有"被引用/子级拒删"约束的模块参照 delete 注释里的骨架先 count 后抛
+    `BizException.conflict`，防误删
+  - 分页统一用 `normalizePage/normalizeSize` 归一化；带筛选的分页按生成的注释样例用
+    **condition 链式**（`eq(boolean, col, val)` 一行一个条件，判定写 condition 内），
+    业务语义判定（parentId>0 之类）也写在 condition 里，过长再抽局部 boolean
 - **不生成 mapper.xml**（见下节）
 
 **重复生成会不会覆盖已写好的业务？** 不会。生成器**默认跳过已存在的文件**（未开启
@@ -139,18 +157,23 @@ fileOverride），只新建不存在的文件：
 
 1. 实体类名已按规则**去掉域前缀**（`usr_users` → 类 `Users`，`@TableName` 仍为 `usr_users`）；
    如需单数类名（`Users` → `User`）直接改名并保留 `@TableName`
-2. Req/VO 按接口用例裁剪字段、补校验注解（`@NotNull`/`@NotBlank` 等）
+2. CreateReq/UpdateReq 已按 DB 约束带**基础校验**：NOT NULL 且无默认值的列自动加
+   `@NotNull`/`@NotBlank`，String 列按 DB 长度上限自动加 `@Size(max=...)`；仍按接口用例
+   裁剪字段、补充业务校验（如 `@Min`/`@Max`/枚举校验等模板无法从 DB 推导的部分）。
+   update 为 DTO 覆盖语义（null 保留原值，非全量重置），做部分更新（PATCH）的模块自行放松
 3. Controller 路径默认已按规则生成（`/api/v1/brands` 等）；遇子资源/嵌套接口（如
    `/api/v1/brands/{id}/xxx`）或跨模块重名时，手动改成更精确的业务路径
 4. 按接口端（公开/管理端）补 springdoc 分组 `@Tag`，并把真实路径补入 `application.yml` 的
    `eshop.security.whitelist` / `admin-paths`（否则 Security 默认拦截返回 403）
-5. 时间字段在 VO 中转为 epoch 毫秒时间戳、核对逻辑删除字段等
+5. 时间列模板已统一转 Long（epoch 毫秒）返回；`deleted_at` 由模板自动标
+   `@TableLogic`（逻辑删除，VO/Req/apply 均不含该列）。注意：本库 73 张表中仅 19 张带
+   `deleted_at`，无该列的表生成的是物理删除，需按业务确认
 
 **推荐编码流程（每个业务域都按这个顺序）**：
 
 ```
 ① 先生成样板 → make gen DOMAIN=<域>（或 GEN_TABLES="表1 表2"）
-                产出可运行的骨架：entity / mapper / service / controller / dto(VO+Req)
+                产出可运行的骨架：entity / mapper / service / controller / dto(VO+CreateReq+UpdateReq)
 ② 再做开发   → 在上面的骨架上写业务：
                 必做清单 1~5（改实体名/裁剪 DTO/补校验/调路径/注册白名单…）
 ③ 验证编译   → make test

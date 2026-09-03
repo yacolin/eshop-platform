@@ -8,11 +8,13 @@ package ${package.Controller};
 
 import com.example.eshopplatform.common.ApiResponse;
 import com.example.eshopplatform.common.PageResult;
-import ${dtoPkg}.${table.entityName}Req;
+import ${dtoPkg}.${table.entityName}CreateReq;
+import ${dtoPkg}.${table.entityName}UpdateReq;
 import ${dtoPkg}.${table.entityName}VO;
 import ${package.Service}.${table.serviceName};
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,9 +37,10 @@ import org.springframework.web.bind.annotation.RestController;
  * </p>
  *
  * <p>默认路径按“表名去前缀 + 短横线”生成（如 sp_brands → /api/v1/brands）。
- * 接入真实接口前请调整：如遇子资源/嵌套接口改更精确的路径、Req/VO 按接口用例
- * 裁剪校验、接口按端分组补 springdoc @Tag，并把真实路径补入 application.yml
- * 的 whitelist/admin-paths。</p>
+ * 新增/更新请求体分别用 ${table.entityName}CreateReq / ${table.entityName}UpdateReq，
+ * 写接口带 {@code @Valid} 触发 DTO 内校验注解。接入真实接口前请调整：如遇子资源/
+ * 嵌套接口改更精确的路径、Req/VO 按接口用例裁剪校验、接口按端分组补 springdoc
+ * @Tag，并把真实路径补入 application.yml 的 whitelist/admin-paths。</p>
  *
 <#if author?? && author != ""> * @author ${author}
 </#if> * @since ${date}
@@ -66,14 +69,14 @@ public class ${table.controllerName} {
 
     @Operation(summary = "新增${escStr(table.comment!)}")
     @PostMapping
-    public ApiResponse<${table.entityName}VO> create(@RequestBody ${table.entityName}Req req) {
+    public ApiResponse<${table.entityName}VO> create(@Valid @RequestBody ${table.entityName}CreateReq req) {
         return ApiResponse.ok(${table.serviceName?uncap_first}.create(req));
     }
 
     @Operation(summary = "更新${escStr(table.comment!)}")
     @PutMapping("/{id}")
     public ApiResponse<${table.entityName}VO> update(@PathVariable Long id,
-                                                     @RequestBody ${table.entityName}Req req) {
+                                                     @Valid @RequestBody ${table.entityName}UpdateReq req) {
         return ApiResponse.ok(${table.serviceName?uncap_first}.update(id, req));
     }
 

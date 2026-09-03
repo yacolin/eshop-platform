@@ -5,10 +5,29 @@ package ${package.Entity};
 <#function escStr s>
     <#return s?replace("\\", "\\\\")?replace("\"", "\\\"")?replace("\r", " ")?replace("\n", " ")?replace("*/", "* /")>
 </#function>
+<#-- deleted_at 软删列（datetime，NULL=未删除）：自动加 @TableLogic 实现逻辑删除：
+     value="null"  -> 未删条件拼 deleted_at IS NULL（MP 特判）；
+     delval="now()"-> 删除转 UPDATE deleted_at=now()（原样拼 SQL，走数据库时钟） -->
+<#assign softDelCols = ["deleted_at", "delete_at"]>
+<#function isSoftDelField f>
+    <#list softDelCols as c>
+        <#if f.name == c><#return true></#if>
+    </#list>
+    <#return false>
+</#function>
+<#assign hasSoftDel = false>
+<#list table.fields as field>
+    <#if isSoftDelField(field)>
+        <#assign hasSoftDel = true>
+    </#if>
+</#list>
 
 <#list importEntityFrameworkPackages as pkg>
 import ${pkg};
 </#list>
+<#if hasSoftDel>
+import com.baomidou.mybatisplus.annotation.TableLogic;
+</#if>
 
 <#list importEntityJavaPackages as pkg>
 import ${pkg};
@@ -57,6 +76,9 @@ public class ${entity} {
     <#list field.annotationAttributesList as an>
     ${an.displayName}
     </#list>
+<#if isSoftDelField(field)>
+    @TableLogic(value = "null", delval = "now()")
+</#if>
     private ${field.propertyType} ${field.propertyName};
 </#list>
 <#------------  END 字段循环遍历  ---------->

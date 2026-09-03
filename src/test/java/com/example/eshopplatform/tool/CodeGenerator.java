@@ -19,16 +19,17 @@ import java.util.Map;
  * <p><b>作用</b>：连上 eshop_db 按表生成 entity / mapper / service / controller / dto（不含
  * mapper.xml：SQL 走 MyBatis-Plus Wrapper/注解，不用 XML 文件），
  * 消灭手写 CRUD 骨架的机械劳动；Service 为具体类（不生成接口与 *ServiceImpl，
- * 入参出参走 dto 的 Req/VO），生成后仍需人工核对
- * （类名单复数、Req/VO 字段裁剪与校验、controller 路径/权限与统一返回
- * {@code ApiResponse} 等业务化改造）。
+ * 入参出参走 dto：写请求拆分为 {@code XxxCreateReq}/{@code XxxUpdateReq}，出参为
+ * {@code XxxVO}；时间列 VO 统一 Long（epoch 毫秒）），生成后仍需人工核对
+ * （类名单复数、CreateReq/UpdateReq/VO 字段裁剪与补充校验、controller 路径/权限与
+ * 统一返回 {@code ApiResponse} 等业务化改造）。
  *
  * <p><b>包结构约定</b>（工程约定）：表前缀 = 业务域模块；**类名去掉前缀**（域已由包表达），
  * 生成到 {@code com.example.eshopplatform.<前缀>} 下的 entity / mapper / service /
  * controller / dto。
  * 例如 {@code usr_users} → 前缀 {@code usr} → {@code com.example.eshopplatform.usr.entity.Users}
  * （类名已去 {@code usr_} 前缀，{@code @TableName} 仍为 {@code usr_users}），
- * 同域 dto 生成 {@code UsersVO / UsersReq} 等。
+ * 同域 dto 生成 {@code UsersVO / UsersCreateReq / UsersUpdateReq} 等。
  *
  * <p><b>重复运行安全</b>：生成器默认不覆盖已存在文件（未开启 fileOverride），
  * 只新建缺失文件，已写好的业务改动不会被冲掉；模板/命名规则升级需先 git 提交、
@@ -183,7 +184,8 @@ public class CodeGenerator {
                             .mapperTemplate("templates/mapper.java")   // 接管默认模板（@author 留空）
                             .formatMapperFileName("%sMapper");
                 })
-                // DTO：每个业务域一个 dto 包，每表生成 <实体>VO / <实体>Req
+                // DTO：每个业务域一个 dto 包，每表生成 <实体>VO / <实体>CreateReq / <实体>UpdateReq
+                //（创建/更新入参拆分，模板自动按 DB 约束补空校验注解；时间列 VO 以 Long epoch 毫秒返回）
                 .injectionConfig(builder -> {
                     // 供模板拼包名用：com.example.eshopplatform[.<模块>].dto
                     String dtoPkg = PARENT_PACKAGE + (module.isEmpty() ? "" : "." + module) + ".dto";
@@ -195,9 +197,14 @@ public class CodeGenerator {
                             .templatePath("templates/vo.java.ftl"));
                     builder.customFile(cf -> cf
                             .formatNameFunction(t -> t.getEntityName())
-                            .fileName("Req.java")
+                            .fileName("CreateReq.java")
                             .packageName("dto")
-                            .templatePath("templates/req.java.ftl"));
+                            .templatePath("templates/req-create.java.ftl"));
+                    builder.customFile(cf -> cf
+                            .formatNameFunction(t -> t.getEntityName())
+                            .fileName("UpdateReq.java")
+                            .packageName("dto")
+                            .templatePath("templates/req-update.java.ftl"));
                 })
                 .templateEngine(new FreemarkerTemplateEngine())
                 .execute();
