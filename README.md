@@ -9,7 +9,7 @@ tag：`scaffold/v0.1.0`。
 |---|---|
 | Spring Boot | 4.1.1（Java 21） |
 | MyBatis-Plus | 3.5.17（`mybatis-plus-spring-boot4-starter`） |
-| 数据库 | MySQL（本机 `eshop_db` 已建好；无 Flyway、无建库脚本） |
+| 数据库 | MySQL（本机 `eshop_db` 已建好；无 Flyway；建库/建表/种子脚本内附 `db/`，`make db-init/db-seed/db-reset` 一键执行，见 `db/README.md`） |
 | 缓存 | Redis（Lettuce） |
 | 认证 | jjwt 0.13（JWT access/refresh） |
 | 接口文档 | springdoc-openapi 3.1（Swagger UI） |
@@ -215,7 +215,7 @@ mybatis-plus:
 
 | 项 | 现状 |
 |---|---|
-| 数据库 | `eshop_db` 已建好并直接连接；无 Flyway、无建库/种子脚本（73 张业务表，前缀分域 usr/sp/tx/mch/mkt/rev/sys/base） |
+| 数据库 | `eshop_db` 已建好并直接连接；无 Flyway；建库/建表/种子脚本整体内附 `db/`（73 张业务表，前缀分域 usr/sp/tx/mch/mkt/rev/sys/base），`make db-init` 建结构、`make db-seed` 灌开发种子 |
 | mapper.xml | 不生成（走 Wrapper/注解）；`mapper-locations` 已预留，需要时自建 `resources/mapper` |
 | springdoc | 暂无业务接口，仅基础配置；按端分组随业务接口补齐 |
 | Security | whitelist / admin-paths 当前仅基础设施路径（`/error`、`/api/v1/health`、文档路径）；业务路径随各域提交补入 |

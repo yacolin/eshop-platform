@@ -3,7 +3,7 @@
 #       make gen（MyBatis-Plus 代码生成） make help（全部命令）
 # 全部命令：make help
 
-.PHONY: help run stop compile test build run-jar gen
+.PHONY: help run stop compile test build run-jar gen db-init db-seed db-reset
 
 # Maven 本地仓库位置（共享优先，受限环境回落）：
 #   默认使用用户级 ~/.m2 —— 与其他项目/IDE 共用依赖与 Maven 发行包，
@@ -49,3 +49,14 @@ gen: ## 运行 MyBatis-Plus 代码生成器（DOMAIN=域前缀 整域；GEN_TABL
 	$(MVN) -q test-compile
 	$(MVN) -q dependency:build-classpath -DincludeScope=test -Dmdep.outputFile=$(GEN_CP)
 	java $(GEN_OPTS) -cp "target/classes:target/test-classes:$$(cat $(GEN_CP))" $(GEN_MAIN) $(if $(DOMAIN),$(DOMAIN),$(GEN_TABLES))
+
+# ---- 数据库（建库/建表/种子脚本内附 db/；默认库 eshop_db，连接参数可用 DB_NAME/MYSQL_HOST/MYSQL_PORT/MYSQL_USER/MYSQL_PASSWORD 覆盖）----
+
+db-init: ## 仅初始化数据库结构：建库（不存在时）+ 清空 + 按依赖重建全部表（73 张，无种子）；有数据时谨慎执行
+	./db/reset_db.sh
+
+db-seed: ## 仅灌入开发种子数据：清空业务数据 + RBAC/基础种子 + Python 批量测试数据（依赖 python3 + pymysql）；生产勿执行
+	./db/seed.sh
+
+db-reset: ## 开发环境一步重置：重建全部表 + 灌入种子数据（db-init + db-seed）
+	./db/reset_db.sh && ./db/seed.sh
