@@ -31,15 +31,14 @@ import java.util.Map;
  * （类名已去 {@code usr_} 前缀，{@code @TableName} 仍为 {@code usr_users}），
  * 同域 dto 生成 {@code UsersVO / UsersCreateReq / UsersUpdateReq} 等。
  *
- * <p><b>域内业务子包</b>（工程约定）：当某域业务增多时，通过 {@link #TABLE_BUSINESS}
- * 登记"表名 → 域内业务"，按业务拆子包（业务→层），
- * 如 {@code sys_roles} → {@code com.example.eshopplatform.sys.role.entity.Roles}、
- * {@code sys_permissions} → {@code ...sys.permission...}、{@code sys_staff} →
- * {@code ...sys.staff...}；sp 域：{@code sp_brands} → {@code ...sp.brand...}、
- * {@code sp_categories} → {@code ...sp.category...}、
- * {@code sp_category_attributes} → {@code ...sp.categoryAttribute...}。
- * 跨业务共用的守卫等放 {@code ...sys.common}。
- * 未登记的表仍按"域层平铺"生成，两种布局可并存。
+ * <p><b>域内业务子包</b>（工程约定）：域内业务增多时按业务拆子包（业务→层），
+ * 业务名默认由表名推导（见 {@link #resolveBusinessOf(String)}）：取域前缀后的首段词
+ * 并做复数转单数，如 {@code sys_roles} → {@code com.example.eshopplatform.sys.role.entity.Roles}、
+ * {@code sp_brands} → {@code ...sp.brand...}、{@code sp_products} → {@code ...sp.product...}。
+ * 个别"归属/命名"需人工判断的表用 {@link #BUSINESS_EXCEPTIONS} 覆盖（如
+ * {@code sys_role_permissions} → sys.permission、{@code sp_category_attributes} →
+ * sp.categoryAttribute）。跨业务共用的守卫等放 {@code ...sys.common}。
+ * 无域前缀或无法推导的表才按"域层平铺"生成。
  *
  * <p><b>重复运行安全</b>：生成器默认不覆盖已存在文件（未开启 fileOverride），
  * 只新建缺失文件，已写好的业务改动不会被冲掉；模板/命名规则升级需先 git 提交、
@@ -88,14 +87,13 @@ public class CodeGenerator {
         System.out.println("待生成表(" + tables.size() + "): " + tables);
 
         // 按生成单元（业务域模块，域内再按业务子模块分组）逐组执行生成：
-        // 按生成单元（业务域模块，域内再按业务子模块分组）逐组执行生成：
-        // 默认 域 = 表前缀（tx_* -> tx）；登记过的表按 TABLE_BUSINESS 归入
-        // "域.业务"包（sys_roles -> sys.role、sp_category_attributes -> sp.categoryAttribute 等），
-        // 关联表按归属挂到主业务侧。
+        // 业务子模块默认由"域前缀后的首段词（复数转单数）"推导（sys_roles -> sys.role、
+        // sp_products -> sp.product）；归属有歧义/需复合名的表用 BUSINESS_EXCEPTIONS 覆盖
+        // （sys_role_permissions -> sys.permission、sp_category_attributes -> sp.categoryAttribute）。
         Map<String, List<String>> byModule = new LinkedHashMap<>();
         for (String table : tables) {
             String domain = moduleOf(table);
-            String business = TABLE_BUSINESS.get(table);
+            String business = resolveBusinessOf(table);
             String group = business == null ? domain : domain + "." + business;
             byModule.computeIfAbsent(group, k -> new ArrayList<>()).add(table);
         }
@@ -107,19 +105,63 @@ public class CodeGenerator {
     }
 
     /**
-     * "表名 -> 域内业务包名"映射：当域内业务增多时，不再整域层平铺生成，
-     * 而是按业务拆子包（如 com.example.eshopplatform.sys.{role,permission,staff}.*、
-     * com.example.eshopplatform.sp.{brand,category,categoryAttribute}.*）。
-     * 未列出的表仍按域平铺（module=表前缀）。新增业务子模块时在此登记。
+     * 表名 -> 域内业务包名的"例外覆盖"：仅登记通用规则推导不出的归属判断——
+     * <ul>
+     *   <li>{@code sys_role_permissions}：按首段词应归 role，但其接口宿主是权限管理
+     *       （/api/v1/permissions/roles/*），故归 permission；</li>
+     *   <li>{@code sp_category_attributes}：需复合业务名 categoryAttribute，避免与未来
+     *       通用属性域（sp_attributes）混淆。</li>
+     * </ul>
+     * 其余表一律走通用规则 {@link #resolveBusinessOf(String)}，无需登记。
      */
-    private static final Map<String, String> TABLE_BUSINESS = Map.of(
-            "sys_roles", "role",
-            "sys_permissions", "permission",
-            "sys_staff", "staff",
-            "sp_brands", "brand",
-            "sp_categories", "category",
-            "sp_category_brands", "category",
+    private static final Map<String, String> BUSINESS_EXCEPTIONS = Map.of(
+            "sys_role_permissions", "permission",
             "sp_category_attributes", "categoryAttribute");
+
+    /**
+     * 推导表所属的域内业务名：
+     * 1) 命中 {@link #BUSINESS_EXCEPTIONS} 直接返回；
+     * 2) 否则取"域前缀后首段词"并做复数转单数（roles -> role、categories -> category）；
+     * 3) 无域前缀/无法推导返回 null（该表按域层平铺生成）。
+     */
+    private static String resolveBusinessOf(String table) {
+        String override = BUSINESS_EXCEPTIONS.get(table);
+        if (override != null) {
+            return override;
+        }
+        int idx = table.indexOf('_');
+        if (idx <= 0) {
+            return null; // 无域前缀：归入根包
+        }
+        String rest = table.substring(idx + 1);
+        if (rest.isEmpty()) {
+            return null;
+        }
+        int next = rest.indexOf('_');
+        String head = next > 0 ? rest.substring(0, next) : rest;
+        String singular = singularize(head);
+        return singular.isEmpty() ? null : singular;
+    }
+
+    /**
+     * 简单英文复数转单数（尽力而为，只覆盖规则化名词）：
+     * -ies -> -y（categories -> category、inventories -> inventory）；
+     * -sses -> 去 es（addresses -> address、businesses -> business）；
+     * -s/-ss 以外去尾 s（roles -> role、brands -> brand、staff 原样）。
+     * 非规则名词（如 series/status）若作为业务名出现，请走 {@link #BUSINESS_EXCEPTIONS} 覆盖。
+     */
+    private static String singularize(String word) {
+        if (word.endsWith("ies")) {
+            return word.substring(0, word.length() - 3) + "y";
+        }
+        if (word.endsWith("sses")) {
+            return word.substring(0, word.length() - 2);
+        }
+        if (word.endsWith("s") && !word.endsWith("ss")) {
+            return word.substring(0, word.length() - 1);
+        }
+        return word;
+    }
 
     /** 表前缀 = 业务域模块名（首个下划线前的小写词，如 sp_products -> sp）；无前缀表归入根包 */
     private static String moduleOf(String table) {
@@ -177,7 +219,7 @@ public class CodeGenerator {
      * 对一个生成单元执行 FastAutoGenerator。
      *
      * @param module 包名段：业务域，或"域.业务子模块"（如 sys.role / sp.brand /
-     *               sp.categoryAttribute，见 TABLE_BUSINESS）。
+     *               sp.categoryAttribute，见 resolveBusinessOf）。
      *               产物包为 com.example.eshopplatform.<module>.<layer>，
      *               类名去前缀取的是包名首段（sys.role -> sys_；sp.brand -> sp_）。
      */
