@@ -38,7 +38,7 @@ public class CategoryAttributesController {
 
     private final CategoryAttributesService categoryAttributesService;
 
-    @Operation(summary = "类目属性关联列表")
+    @Operation(operationId = "listCategoryAttributes", summary = "类目属性关联列表")
     @GetMapping
     public ApiResponse<List<CategoryAttributeVO>> list(
             @RequestParam(required = false) Long categoryId) {
@@ -48,20 +48,20 @@ public class CategoryAttributesController {
         return ApiResponse.ok(categoryAttributesService.listByCategory(categoryId));
     }
 
-    @Operation(summary = "新增类目属性关联")
+    @Operation(operationId = "createCategoryAttribute", summary = "新增类目属性关联")
     @PostMapping
     public ApiResponse<CategoryAttributeVO> create(@RequestBody CategoryAttributeCreateReq req) {
         return ApiResponse.ok(categoryAttributesService.create(req));
     }
 
-    @Operation(summary = "批量新增类目属性关联")
+    @Operation(operationId = "batchCreateCategoryAttributes", summary = "批量新增类目属性关联")
     @PostMapping("/batch")
     public ApiResponse<Void> batchCreate(@RequestBody CategoryAttributeBatchReq req) {
         categoryAttributesService.batchCreate(req);
         return ApiResponse.ok(null);
     }
 
-    @Operation(summary = "删除类目属性关联")
+    @Operation(operationId = "deleteCategoryAttribute", summary = "删除类目属性关联")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         categoryAttributesService.delete(id);

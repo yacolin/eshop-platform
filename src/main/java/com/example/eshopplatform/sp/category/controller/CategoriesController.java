@@ -44,7 +44,7 @@ public class CategoriesController {
     private final CategoriesService categoriesService;
     private final CategoryAttributesService categoryAttributesService;
 
-    @Operation(summary = "分页查询类目表（树状结构）")
+    @Operation(operationId = "listCategories", summary = "分页查询类目表（树状结构）")
     @GetMapping
     public ApiResponse<PageResult<CategoriesVO>> page(
             @RequestParam(defaultValue = "1") int page,
@@ -56,68 +56,68 @@ public class CategoriesController {
         return ApiResponse.ok(categoriesService.page(page, size, parentId, status, name, level));
     }
 
-    @Operation(summary = "全部类目（平铺）")
+    @Operation(operationId = "listAllCategories", summary = "全部类目（平铺）")
     @GetMapping("/all")
     public ApiResponse<List<CategoriesVO>> all() {
         return ApiResponse.ok(categoriesService.listAll());
     }
 
-    @Operation(summary = "根类目列表")
+    @Operation(operationId = "listRootCategories", summary = "根类目列表")
     @GetMapping("/root")
     public ApiResponse<List<CategoriesVO>> root() {
         return ApiResponse.ok(categoriesService.listRoot());
     }
 
-    @Operation(summary = "非根类目列表")
+    @Operation(operationId = "listNonRootCategories", summary = "非根类目列表")
     @GetMapping("/nonroot")
     public ApiResponse<List<CategoriesVO>> nonroot() {
         return ApiResponse.ok(categoriesService.listNonRoot());
     }
 
-    @Operation(summary = "子类目列表")
+    @Operation(operationId = "listCategoryChildren", summary = "子类目列表")
     @GetMapping("/{id}/children")
     public ApiResponse<List<CategoriesVO>> children(@PathVariable Long id) {
         return ApiResponse.ok(categoriesService.listChildren(id));
     }
 
-    @Operation(summary = "指定层级类目列表")
+    @Operation(operationId = "listCategoriesByLevel", summary = "指定层级类目列表")
     @GetMapping("/level/{level}")
     public ApiResponse<List<CategoriesVO>> level(@PathVariable Byte level) {
         return ApiResponse.ok(categoriesService.listByLevel(level));
     }
 
-    @Operation(summary = "类目树形结构")
+    @Operation(operationId = "listCategoryTree", summary = "类目树形结构")
     @GetMapping("/tree")
     public ApiResponse<List<CategoriesTreeVO>> tree(@RequestParam(required = false) Byte status) {
         return ApiResponse.ok(categoriesService.tree(status));
     }
 
-    @Operation(summary = "类目推荐属性列表")
+    @Operation(operationId = "listRecommendedAttributes", summary = "类目推荐属性列表")
     @GetMapping("/{id}/attributes")
     public ApiResponse<List<CategoryAttributeVO>> attributes(@PathVariable Long id) {
         return ApiResponse.ok(categoryAttributesService.listByCategory(id));
     }
 
-    @Operation(summary = "查询类目表（树状结构）详情")
+    @Operation(operationId = "getCategories", summary = "查询类目表（树状结构）详情")
     @GetMapping("/{id}")
     public ApiResponse<CategoriesVO> get(@PathVariable Long id) {
         return ApiResponse.ok(categoriesService.getById(id));
     }
 
-    @Operation(summary = "新增类目表（树状结构）")
+    @Operation(operationId = "createCategories", summary = "新增类目表（树状结构）")
     @PostMapping
     public ApiResponse<CategoriesVO> create(@RequestBody CategoriesReq req) {
         return ApiResponse.ok(categoriesService.create(req));
     }
 
-    @Operation(summary = "更新类目表（树状结构）")
+    @Operation(operationId = "updateCategories", summary = "更新类目表（树状结构）")
     @PutMapping("/{id}")
     public ApiResponse<CategoriesVO> update(@PathVariable Long id,
                                                      @RequestBody CategoriesReq req) {
         return ApiResponse.ok(categoriesService.update(id, req));
     }
 
-    @Operation(summary = "删除类目表（树状结构）")
+    @Operation(operationId = "deleteCategories", summary = "删除类目表（树状结构）")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         categoriesService.delete(id);

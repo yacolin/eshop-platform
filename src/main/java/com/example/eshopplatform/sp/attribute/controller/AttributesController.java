@@ -47,25 +47,25 @@ public class AttributesController {
     private final AttributesService attributesService;
     private final AttributeValuesService attributeValuesService;
 
-    @Operation(summary = "可搜索属性列表（searchable=1 且启用）")
+    @Operation(operationId = "listSearchableAttributes", summary = "可搜索属性列表（searchable=1 且启用）")
     @GetMapping("/searchable")
     public ApiResponse<List<AttributesVO>> searchable(@RequestParam(required = false) Long categoryId) {
         return ApiResponse.ok(attributesService.listSearchable(categoryId));
     }
 
-    @Operation(summary = "SKU规格属性列表（is_sku_spec=1 且启用）")
+    @Operation(operationId = "listSkuSpecAttributes", summary = "SKU规格属性列表（is_sku_spec=1 且启用）")
     @GetMapping("/sku-spec")
     public ApiResponse<List<AttributesVO>> skuSpec(@RequestParam(required = false) Long categoryId) {
         return ApiResponse.ok(attributesService.listSkuSpec(categoryId));
     }
 
-    @Operation(summary = "按属性ID获取属性值列表（启用，search_weight 降序）")
+    @Operation(operationId = "listAttributeValuesByAttributeId", summary = "按属性ID获取属性值列表（启用，search_weight 降序）")
     @GetMapping("/{id}/values")
     public ApiResponse<List<AttributeValuesVO>> values(@PathVariable Long id) {
         return ApiResponse.ok(attributeValuesService.listByAttribute(id));
     }
 
-    @Operation(summary = "分页查询属性字典表")
+    @Operation(operationId = "listAttributes", summary = "分页查询属性字典表")
     @GetMapping
     public ApiResponse<PageResult<AttributesVO>> page(
             @RequestParam(defaultValue = "1") int page,
@@ -76,26 +76,26 @@ public class AttributesController {
         return ApiResponse.ok(attributesService.page(page, size, categoryId, searchable, isSkuSpec));
     }
 
-    @Operation(summary = "查询属性字典表详情")
+    @Operation(operationId = "getAttributes", summary = "查询属性字典表详情")
     @GetMapping("/{id}")
     public ApiResponse<AttributesVO> get(@PathVariable Long id) {
         return ApiResponse.ok(attributesService.getById(id));
     }
 
-    @Operation(summary = "新增属性字典表")
+    @Operation(operationId = "createAttributes", summary = "新增属性字典表")
     @PostMapping
     public ApiResponse<AttributesVO> create(@Valid @RequestBody AttributesCreateReq req) {
         return ApiResponse.ok(attributesService.create(req));
     }
 
-    @Operation(summary = "更新属性字典表")
+    @Operation(operationId = "updateAttributes", summary = "更新属性字典表")
     @PutMapping("/{id}")
     public ApiResponse<AttributesVO> update(@PathVariable Long id,
                                                      @Valid @RequestBody AttributesUpdateReq req) {
         return ApiResponse.ok(attributesService.update(id, req));
     }
 
-    @Operation(summary = "删除属性字典表")
+    @Operation(operationId = "deleteAttributes", summary = "删除属性字典表")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         attributesService.delete(id);

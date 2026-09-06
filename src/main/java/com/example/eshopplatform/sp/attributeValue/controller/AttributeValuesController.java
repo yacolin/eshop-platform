@@ -42,7 +42,7 @@ public class AttributeValuesController {
 
     private final AttributeValuesService attributeValuesService;
 
-    @Operation(summary = "分页查询属性值字典表")
+    @Operation(operationId = "listAttributeValues", summary = "分页查询属性值字典表")
     @GetMapping
     public ApiResponse<PageResult<AttributeValuesVO>> page(
             @RequestParam(defaultValue = "1") int page,
@@ -51,26 +51,26 @@ public class AttributeValuesController {
         return ApiResponse.ok(attributeValuesService.page(page, size, attributeId));
     }
 
-    @Operation(summary = "查询属性值字典表详情")
+    @Operation(operationId = "getAttributeValues", summary = "查询属性值字典表详情")
     @GetMapping("/{id}")
     public ApiResponse<AttributeValuesVO> get(@PathVariable Long id) {
         return ApiResponse.ok(attributeValuesService.getById(id));
     }
 
-    @Operation(summary = "新增属性值字典表")
+    @Operation(operationId = "createAttributeValues", summary = "新增属性值字典表")
     @PostMapping
     public ApiResponse<AttributeValuesVO> create(@Valid @RequestBody AttributeValuesCreateReq req) {
         return ApiResponse.ok(attributeValuesService.create(req));
     }
 
-    @Operation(summary = "更新属性值字典表")
+    @Operation(operationId = "updateAttributeValues", summary = "更新属性值字典表")
     @PutMapping("/{id}")
     public ApiResponse<AttributeValuesVO> update(@PathVariable Long id,
                                                      @Valid @RequestBody AttributeValuesUpdateReq req) {
         return ApiResponse.ok(attributeValuesService.update(id, req));
     }
 
-    @Operation(summary = "删除属性值字典表")
+    @Operation(operationId = "deleteAttributeValues", summary = "删除属性值字典表")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         attributeValuesService.delete(id);

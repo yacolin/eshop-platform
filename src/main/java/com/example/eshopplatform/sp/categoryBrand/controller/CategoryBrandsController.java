@@ -35,13 +35,13 @@ public class CategoryBrandsController {
 
     private final CategoryBrandsService categoryBrandsService;
 
-    @Operation(summary = "类目下品牌列表（关联 + 品牌详情）")
+    @Operation(operationId = "listCategoryBrands", summary = "类目下品牌列表（关联 + 品牌详情）")
     @GetMapping("/{categoryId}/brands")
     public ApiResponse<List<CategoryBrandVO>> listByCategory(@PathVariable Long categoryId) {
         return ApiResponse.ok(categoryBrandsService.listByCategory(categoryId));
     }
 
-    @Operation(summary = "类目关联品牌（全量替换）")
+    @Operation(operationId = "replaceCategoryBrands", summary = "类目关联品牌（全量替换）")
     @PutMapping("/{categoryId}/brands")
     public ApiResponse<Void> replaceByCategory(@PathVariable Long categoryId,
                                                @RequestBody CategoryBrandUpdateReq req) {
