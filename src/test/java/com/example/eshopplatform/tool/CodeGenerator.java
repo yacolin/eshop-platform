@@ -113,14 +113,17 @@ public class CodeGenerator {
      *   <li>{@code sp_category_attributes}：需复合业务名 categoryAttribute，避免与未来
      *       通用属性域（sp_attributes）混淆；</li>
      *   <li>{@code sp_category_brands}：需复合业务名 categoryBrand（类目-品牌关联独立成业务，
-     *       与 categoryAttribute 拆分口径一致）。</li>
+     *       与 categoryAttribute 拆分口径一致）；</li>
+     *   <li>{@code sp_attribute_values}：需复合业务名 attributeValue（属性取值表独立成业务，
+     *       与主表 sp_attributes 拆开、与 categoryAttribute/categoryBrand 拆分口径一致）。</li>
      * </ul>
      * 其余表一律走通用规则 {@link #resolveBusinessOf(String)}，无需登记。
      */
     private static final Map<String, String> BUSINESS_EXCEPTIONS = Map.of(
             "sys_role_permissions", "permission",
             "sp_category_attributes", "categoryAttribute",
-            "sp_category_brands", "categoryBrand");
+            "sp_category_brands", "categoryBrand",
+            "sp_attribute_values", "attributeValue");
 
     /**
      * 推导表所属的域内业务名：
