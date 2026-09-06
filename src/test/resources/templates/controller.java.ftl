@@ -53,7 +53,8 @@ public class ${table.controllerName} {
 
     private final ${table.serviceName} ${table.serviceName?uncap_first};
 
-    @Operation(summary = "分页查询${escStr(table.comment!)}")
+    <#-- operationId 命名：list/get/create/update/delete + entityName（全局唯一，供前端按 operationId 取用） -->
+    @Operation(operationId = "list${table.entityName}", summary = "分页查询${escStr(table.comment!)}")
     @GetMapping
     public ApiResponse<PageResult<${table.entityName}VO>> page(
             @RequestParam(defaultValue = "1") int page,
@@ -61,26 +62,26 @@ public class ${table.controllerName} {
         return ApiResponse.ok(${table.serviceName?uncap_first}.page(page, size));
     }
 
-    @Operation(summary = "查询${escStr(table.comment!)}详情")
+    @Operation(operationId = "get${table.entityName}", summary = "查询${escStr(table.comment!)}详情")
     @GetMapping("/{id}")
     public ApiResponse<${table.entityName}VO> get(@PathVariable Long id) {
         return ApiResponse.ok(${table.serviceName?uncap_first}.getById(id));
     }
 
-    @Operation(summary = "新增${escStr(table.comment!)}")
+    @Operation(operationId = "create${table.entityName}", summary = "新增${escStr(table.comment!)}")
     @PostMapping
     public ApiResponse<${table.entityName}VO> create(@Valid @RequestBody ${table.entityName}CreateReq req) {
         return ApiResponse.ok(${table.serviceName?uncap_first}.create(req));
     }
 
-    @Operation(summary = "更新${escStr(table.comment!)}")
+    @Operation(operationId = "update${table.entityName}", summary = "更新${escStr(table.comment!)}")
     @PutMapping("/{id}")
     public ApiResponse<${table.entityName}VO> update(@PathVariable Long id,
                                                      @Valid @RequestBody ${table.entityName}UpdateReq req) {
         return ApiResponse.ok(${table.serviceName?uncap_first}.update(id, req));
     }
 
-    @Operation(summary = "删除${escStr(table.comment!)}")
+    @Operation(operationId = "delete${table.entityName}", summary = "删除${escStr(table.comment!)}")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         ${table.serviceName?uncap_first}.delete(id);
