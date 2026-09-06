@@ -37,8 +37,8 @@ import java.util.Map;
  * {@code com.example.eshopplatform.sys.role.entity.Roles}、{@code sp_brands} →
  * {@code ...sp.brand...}；复合表如 {@code sp_category_attributes} →
  * {@code ...sp.categoryAttribute...}、{@code sp_attribute_values} →
- * {@code ...sp.attributeValue...}。个别纯语义归属用 {@link #BUSINESS_EXCEPTIONS}
- * 覆盖（如 {@code sys_role_permissions} → sys.permission，接口宿主在权限管理）。
+ * {@code ...sp.attributeValue...}、{@code sys_role_permissions} →
+ * {@code ...sys.rolePermission...}。
  * 跨业务共用的守卫等放 {@code ...sys.common}。
  * 无域前缀或无法推导的表才按"域层平铺"生成。
  *
@@ -89,10 +89,10 @@ public class CodeGenerator {
         System.out.println("待生成表(" + tables.size() + "): " + tables);
 
         // 按生成单元（业务域模块，域内再按业务子模块分组）逐组执行生成：
-        // 业务名默认由"域前缀后的整段复合名"推导（下划线去连、末词复数转单数）：
-        // sys_roles -> sys.role、sp_category_attributes -> sp.categoryAttribute、
-        // sp_attribute_values -> sp.attributeValue；真正的语义归属判断才走
-        // BUSINESS_EXCEPTIONS（如 sys_role_permissions -> sys.permission，接口宿主在权限管理）。
+        // 业务名统一由"域前缀后的整段复合名"推导（下划线去连、末词复数转单数）：
+        // sys_roles -> sys.role、sys_role_permissions -> sys.rolePermission、
+        // sp_category_attributes -> sp.categoryAttribute、sp_attribute_values -> sp.attributeValue；
+        // 命名规则表达不了的场景才走 BUSINESS_EXCEPTIONS（当前无例外）。
         Map<String, List<String>> byModule = new LinkedHashMap<>();
         for (String table : tables) {
             String domain = moduleOf(table);
@@ -108,16 +108,12 @@ public class CodeGenerator {
     }
 
     /**
-     * 表名 -> 域内业务包名的"例外覆盖"：只登记通用规则（整段复合单数化）推导不出的
-     * 语义归属判断。目前唯一一例：
-     * <ul>
-     *   <li>{@code sys_role_permissions}：按复合规则应为 rolePermission，但其接口宿主是
-     *       权限管理（/api/v1/permissions/roles/*），故归 permission。</li>
-     * </ul>
-     * 其余表一律走通用规则 {@link #resolveBusinessOf(String)}，无需登记。
+     * 表名 -> 域内业务包名的"例外覆盖"：为命名规则（整段复合单数化）表达不了的场景预留。
+     * 当前无例外——包括 {@code sys_role_permissions} 在内一律按规则推导
+     * （sys_role_permissions -> sys.rolePermission）。
+     * 未来若遇到非规则名词/特殊归属，再在此登记并说明理由。
      */
-    private static final Map<String, String> BUSINESS_EXCEPTIONS = Map.of(
-            "sys_role_permissions", "permission");
+    private static final Map<String, String> BUSINESS_EXCEPTIONS = Map.of();
 
     /**
      * 推导表所属的域内业务名：
