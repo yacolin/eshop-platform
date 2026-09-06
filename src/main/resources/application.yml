@@ -139,6 +139,7 @@ springdoc:
         - /api/v1/roles/**
         - /api/v1/permissions/**
         - /api/v1/staff/**
+        - /api/v1/attributes/**
         - /api/v1/attribute-values/**
     - group: public
       display-name: 公开/小程序端

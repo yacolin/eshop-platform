@@ -13,6 +13,8 @@ import com.example.eshopplatform.common.TimeUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 /**
  * <p>
  * 属性值字典表服务
@@ -45,6 +47,19 @@ public class AttributeValuesService {
                 .orderByDesc(AttributeValues::getId);
         attributeValuesMapper.selectPage(p, wrapper);
         return PageResult.of(p.getTotal(), p.getRecords().stream().map(this::toVO).toList());
+    }
+
+    /**
+     * 按属性ID取启用属性值列表（对齐 gf ListByAttr，供 GET /api/v1/attributes/{id}/values）：
+     * status=1，search_weight 降序、sort_order 升序。
+     */
+    public List<AttributeValuesVO> listByAttribute(Long attributeId) {
+        List<AttributeValues> list = attributeValuesMapper.selectList(new LambdaQueryWrapper<AttributeValues>()
+                .eq(AttributeValues::getAttributeId, attributeId)
+                .eq(AttributeValues::getStatus, (byte) 1)
+                .orderByDesc(AttributeValues::getSearchWeight)
+                .orderByAsc(AttributeValues::getSortOrder));
+        return list.stream().map(this::toVO).toList();
     }
 
     /*
