@@ -85,6 +85,11 @@ public class ${table.serviceName} {
      *
      * 带业务语义的判定（如 parentId > 0 表示只筛子级、level > 0）也写在 condition 里；
      * 判定一长就读不动时，抽成带名字的局部 boolean 或单独 if，不要硬塞链式。
+     *
+     * 注意：LambdaQueryWrapper 一律写显式泛型（new LambdaQueryWrapper<Xxx>()，
+     * 勿用 <> 菱形）——链式 eq(boolean, 实体::getter, 值) 的方法引用参与泛型推断时，
+     * 菱形写法会偶发 "方法引用类型无效 / 无法将 getXxx 应用到给定类型" 的编译/IDE 歧义
+     * （本项目已多次复现，见 attributeValue / promotion 分页）。
      */
 
     /** 按主键查询 */
