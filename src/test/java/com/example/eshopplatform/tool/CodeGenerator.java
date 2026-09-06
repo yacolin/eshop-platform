@@ -32,12 +32,13 @@ import java.util.Map;
  * 同域 dto 生成 {@code UsersVO / UsersCreateReq / UsersUpdateReq} 等。
  *
  * <p><b>域内业务子包</b>（工程约定）：域内业务增多时按业务拆子包（业务→层），
- * 业务名默认由表名推导（见 {@link #resolveBusinessOf(String)}）：取域前缀后的首段词
- * 并做复数转单数，如 {@code sys_roles} → {@code com.example.eshopplatform.sys.role.entity.Roles}、
- * {@code sp_brands} → {@code ...sp.brand...}、{@code sp_products} → {@code ...sp.product...}。
- * 个别"归属/命名"需人工判断的表用 {@link #BUSINESS_EXCEPTIONS} 覆盖（如
- * {@code sys_role_permissions} → sys.permission、{@code sp_category_attributes} →
- * sp.categoryAttribute、{@code sp_category_brands} → sp.categoryBrand）。
+ * 业务名默认由表名推导（见 {@link #resolveBusinessOf(String)}）：取域前缀后的整段
+ * 剩余名、去下划线驼峰拼接、末词复数转单数——单词表如 {@code sys_roles} →
+ * {@code com.example.eshopplatform.sys.role.entity.Roles}、{@code sp_brands} →
+ * {@code ...sp.brand...}；复合表如 {@code sp_category_attributes} →
+ * {@code ...sp.categoryAttribute...}、{@code sp_attribute_values} →
+ * {@code ...sp.attributeValue...}。个别纯语义归属用 {@link #BUSINESS_EXCEPTIONS}
+ * 覆盖（如 {@code sys_role_permissions} → sys.permission，接口宿主在权限管理）。
  * 跨业务共用的守卫等放 {@code ...sys.common}。
  * 无域前缀或无法推导的表才按"域层平铺"生成。
  *
@@ -88,9 +89,10 @@ public class CodeGenerator {
         System.out.println("待生成表(" + tables.size() + "): " + tables);
 
         // 按生成单元（业务域模块，域内再按业务子模块分组）逐组执行生成：
-        // 业务子模块默认由"域前缀后的首段词（复数转单数）"推导（sys_roles -> sys.role、
-        // sp_products -> sp.product）；归属有歧义/需复合名的表用 BUSINESS_EXCEPTIONS 覆盖
-        // （sys_role_permissions -> sys.permission、sp_category_attributes -> sp.categoryAttribute）。
+        // 业务名默认由"域前缀后的整段复合名"推导（下划线去连、末词复数转单数）：
+        // sys_roles -> sys.role、sp_category_attributes -> sp.categoryAttribute、
+        // sp_attribute_values -> sp.attributeValue；真正的语义归属判断才走
+        // BUSINESS_EXCEPTIONS（如 sys_role_permissions -> sys.permission，接口宿主在权限管理）。
         Map<String, List<String>> byModule = new LinkedHashMap<>();
         for (String table : tables) {
             String domain = moduleOf(table);
@@ -106,29 +108,23 @@ public class CodeGenerator {
     }
 
     /**
-     * 表名 -> 域内业务包名的"例外覆盖"：仅登记通用规则推导不出的归属判断——
+     * 表名 -> 域内业务包名的"例外覆盖"：只登记通用规则（整段复合单数化）推导不出的
+     * 语义归属判断。目前唯一一例：
      * <ul>
-     *   <li>{@code sys_role_permissions}：按首段词应归 role，但其接口宿主是权限管理
-     *       （/api/v1/permissions/roles/*），故归 permission；</li>
-     *   <li>{@code sp_category_attributes}：需复合业务名 categoryAttribute，避免与未来
-     *       通用属性域（sp_attributes）混淆；</li>
-     *   <li>{@code sp_category_brands}：需复合业务名 categoryBrand（类目-品牌关联独立成业务，
-     *       与 categoryAttribute 拆分口径一致）；</li>
-     *   <li>{@code sp_attribute_values}：需复合业务名 attributeValue（属性取值表独立成业务，
-     *       与主表 sp_attributes 拆开、与 categoryAttribute/categoryBrand 拆分口径一致）。</li>
+     *   <li>{@code sys_role_permissions}：按复合规则应为 rolePermission，但其接口宿主是
+     *       权限管理（/api/v1/permissions/roles/*），故归 permission。</li>
      * </ul>
      * 其余表一律走通用规则 {@link #resolveBusinessOf(String)}，无需登记。
      */
     private static final Map<String, String> BUSINESS_EXCEPTIONS = Map.of(
-            "sys_role_permissions", "permission",
-            "sp_category_attributes", "categoryAttribute",
-            "sp_category_brands", "categoryBrand",
-            "sp_attribute_values", "attributeValue");
+            "sys_role_permissions", "permission");
 
     /**
      * 推导表所属的域内业务名：
      * 1) 命中 {@link #BUSINESS_EXCEPTIONS} 直接返回；
-     * 2) 否则取"域前缀后首段词"并做复数转单数（roles -> role、categories -> category）；
+     * 2) 否则取"域前缀后整段剩余名"：按下划线分词、去连成驼峰、仅对末词做复数转单数
+     *    （category_attributes -> categoryAttribute、attribute_values -> attributeValue、
+     *    brands -> brand、categories -> category、staff 原样）；
      * 3) 无域前缀/无法推导返回 null（该表按域层平铺生成）。
      */
     private static String resolveBusinessOf(String table) {
@@ -144,10 +140,23 @@ public class CodeGenerator {
         if (rest.isEmpty()) {
             return null;
         }
-        int next = rest.indexOf('_');
-        String head = next > 0 ? rest.substring(0, next) : rest;
-        String singular = singularize(head);
-        return singular.isEmpty() ? null : singular;
+        String[] tokens = rest.split("_");
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < tokens.length; i++) {
+            String word = tokens[i];
+            if (word.isEmpty()) {
+                continue;
+            }
+            if (i == tokens.length - 1) {
+                word = singularize(word); // 仅末词是中心名词，做单数化
+            }
+            if (sb.length() == 0) {
+                sb.append(word);
+            } else {
+                sb.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
+            }
+        }
+        return sb.isEmpty() ? null : sb.toString();
     }
 
     /**
