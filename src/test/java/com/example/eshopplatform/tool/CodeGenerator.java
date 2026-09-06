@@ -31,11 +31,14 @@ import java.util.Map;
  * （类名已去 {@code usr_} 前缀，{@code @TableName} 仍为 {@code usr_users}），
  * 同域 dto 生成 {@code UsersVO / UsersCreateReq / UsersUpdateReq} 等。
  *
- * <p><b>域内业务子包</b>（工程约定）：当某域业务增多时，通过 {@link #SYS_BUSINESS}
+ * <p><b>域内业务子包</b>（工程约定）：当某域业务增多时，通过 {@link #TABLE_BUSINESS}
  * 登记"表名 → 域内业务"，按业务拆子包（业务→层），
  * 如 {@code sys_roles} → {@code com.example.eshopplatform.sys.role.entity.Roles}、
  * {@code sys_permissions} → {@code ...sys.permission...}、{@code sys_staff} →
- * {@code ...sys.staff...}；跨业务共用的守卫等放 {@code ...sys.common}。
+ * {@code ...sys.staff...}；sp 域：{@code sp_brands} → {@code ...sp.brand...}、
+ * {@code sp_categories} → {@code ...sp.category...}、
+ * {@code sp_category_attributes} → {@code ...sp.categoryAttribute...}。
+ * 跨业务共用的守卫等放 {@code ...sys.common}。
  * 未登记的表仍按"域层平铺"生成，两种布局可并存。
  *
  * <p><b>重复运行安全</b>：生成器默认不覆盖已存在文件（未开启 fileOverride），
@@ -85,12 +88,14 @@ public class CodeGenerator {
         System.out.println("待生成表(" + tables.size() + "): " + tables);
 
         // 按生成单元（业务域模块，域内再按业务子模块分组）逐组执行生成：
-        // 默认 域 = 表前缀（sp_* -> sp）；sys 域通过 SYS_BUSINESS 细分出 role/staff/
-        // permission 业务包（sys_roles -> sys.role），关联表按归属挂到主业务侧。
+        // 按生成单元（业务域模块，域内再按业务子模块分组）逐组执行生成：
+        // 默认 域 = 表前缀（tx_* -> tx）；登记过的表按 TABLE_BUSINESS 归入
+        // "域.业务"包（sys_roles -> sys.role、sp_category_attributes -> sp.categoryAttribute 等），
+        // 关联表按归属挂到主业务侧。
         Map<String, List<String>> byModule = new LinkedHashMap<>();
         for (String table : tables) {
             String domain = moduleOf(table);
-            String business = SYS_BUSINESS.get(table);
+            String business = TABLE_BUSINESS.get(table);
             String group = business == null ? domain : domain + "." + business;
             byModule.computeIfAbsent(group, k -> new ArrayList<>()).add(table);
         }
@@ -102,14 +107,19 @@ public class CodeGenerator {
     }
 
     /**
-     * sys 域"表名 -> 域内业务包名"映射：当域内业务增多时，不再整域层平铺生成，
-     * 而是按业务拆子包（com.example.eshopplatform.sys.{role,permission,staff}.*）。
-     * 未列出的表仍按域平铺（module=sys）。新增 sys 业务时在此登记。
+     * "表名 -> 域内业务包名"映射：当域内业务增多时，不再整域层平铺生成，
+     * 而是按业务拆子包（如 com.example.eshopplatform.sys.{role,permission,staff}.*、
+     * com.example.eshopplatform.sp.{brand,category,categoryAttribute}.*）。
+     * 未列出的表仍按域平铺（module=表前缀）。新增业务子模块时在此登记。
      */
-    private static final Map<String, String> SYS_BUSINESS = Map.of(
+    private static final Map<String, String> TABLE_BUSINESS = Map.of(
             "sys_roles", "role",
             "sys_permissions", "permission",
-            "sys_staff", "staff");
+            "sys_staff", "staff",
+            "sp_brands", "brand",
+            "sp_categories", "category",
+            "sp_category_brands", "category",
+            "sp_category_attributes", "categoryAttribute");
 
     /** 表前缀 = 业务域模块名（首个下划线前的小写词，如 sp_products -> sp）；无前缀表归入根包 */
     private static String moduleOf(String table) {
@@ -166,9 +176,10 @@ public class CodeGenerator {
     /**
      * 对一个生成单元执行 FastAutoGenerator。
      *
-     * @param module 包名段：业务域，或"域.业务子模块"（如 sys.role，见 SYS_BUSINESS）。
+     * @param module 包名段：业务域，或"域.业务子模块"（如 sys.role / sp.brand /
+     *               sp.categoryAttribute，见 TABLE_BUSINESS）。
      *               产物包为 com.example.eshopplatform.<module>.<layer>，
-     *               类名去前缀取的是包名首段（sys.role -> sys_；sp -> sp_）。
+     *               类名去前缀取的是包名首段（sys.role -> sys_；sp.brand -> sp_）。
      */
     private static void generateModule(String url, String user, String pass, String author,
                                        String module, List<String> tables) {
