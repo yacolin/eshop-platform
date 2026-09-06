@@ -46,7 +46,7 @@ class CategoryAttributesControllerTest {
         mockMvc.perform(get("/api/v1/category-attributes"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(40000))
-                .andExpect(jsonPath("$.message").value("category_id 不能为空"));
+                .andExpect(jsonPath("$.message").value("categoryId 不能为空"));
     }
 
     @Test
@@ -57,7 +57,7 @@ class CategoryAttributesControllerTest {
         vo.setAttributeId(3L);
         when(categoryAttributesService.listByCategory(1L)).thenReturn(List.of(vo));
 
-        mockMvc.perform(get("/api/v1/category-attributes").param("category_id", "1"))
+        mockMvc.perform(get("/api/v1/category-attributes").param("categoryId", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].attributeId").value(3));
     }

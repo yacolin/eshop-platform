@@ -45,9 +45,9 @@ public class BrandsController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String name,
-            @RequestParam(required = false) String first_letter,
+            @RequestParam(required = false) String firstLetter,
             @RequestParam(required = false) String status) {
-        return ApiResponse.ok(brandsService.page(page, size, name, first_letter, status));
+        return ApiResponse.ok(brandsService.page(page, size, name, firstLetter, status));
     }
 
     @Operation(operationId = "getBrands", summary = "查询品牌表详情")

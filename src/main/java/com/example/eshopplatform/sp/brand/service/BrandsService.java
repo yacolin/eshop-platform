@@ -30,14 +30,14 @@ public class BrandsService {
     private final BrandsMapper brandsMapper;
 
     /** 分页查询（第 page 页，每页 size 条） */
-    public PageResult<BrandsVO> page(int page, int size, String name, String first_letter, String status) {
+    public PageResult<BrandsVO> page(int page, int size, String name, String firstLetter, String status) {
         Page<Brands> p = new Page<>(Math.max(page, 1), Math.min(Math.max(size, 1), 1000));
         LambdaQueryWrapper<Brands> wrapper = new LambdaQueryWrapper<>();
         if (name != null && !name.isEmpty()) {
             wrapper.like(Brands::getName, name);
         }
-        if (first_letter != null && !first_letter.isEmpty()) {
-            wrapper.like(Brands::getFirstLetter, first_letter);
+        if (firstLetter != null && !firstLetter.isEmpty()) {
+            wrapper.like(Brands::getFirstLetter, firstLetter);
         }
         if (status != null && !status.isEmpty()) {
             wrapper.eq(Brands::getStatus, status);

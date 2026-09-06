@@ -47,11 +47,11 @@ public class RolesService {
     private static final String ROLE_TYPE_CUSTOM = "custom";
 
     /** 分页查询（第 page 页，每页 size 条；需管理员） */
-    public PageResult<RolesVO> page(int page, int size, String role_type, String name, String status) {
+    public PageResult<RolesVO> page(int page, int size, String roleType, String name, String status) {
         sysAdminGuard.requireAdmin();
         Page<Roles> p = new Page<>(normalizePage(page), normalizeSize(size));
         LambdaQueryWrapper<Roles> wrapper = new LambdaQueryWrapper<Roles>()
-                .eq(role_type != null, Roles::getRoleType, role_type)
+                .eq(roleType != null, Roles::getRoleType, roleType)
                 .like(name != null && !name.isEmpty(), Roles::getName, name)
                 .eq(status != null, Roles::getStatus, status)
                 .orderByDesc(Roles::getId);

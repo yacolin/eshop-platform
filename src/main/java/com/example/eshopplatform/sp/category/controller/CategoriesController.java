@@ -29,7 +29,7 @@ import java.util.List;
  * 类目表（树状结构）接口（公开）
  * </p>
  *
- * <p>查询覆盖：平铺分页（parent_id/status/name/level 筛选）、全部/根/非根、
+ * <p>查询覆盖：平铺分页（parentId/status/name/level 筛选）、全部/根/非根、
  * 子级/层级/树形、详情；子资源：类目推荐属性（类目-品牌关联见 categoryBrand 业务）。
  * 路径已加入 application.yml 的公开 whitelist 与 springdoc public 分组。</p>
  *
@@ -49,7 +49,7 @@ public class CategoriesController {
     public ApiResponse<PageResult<CategoriesVO>> page(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(name = "parent_id", required = false) Long parentId,
+            @RequestParam(required = false) Long parentId,
             @RequestParam(required = false) Byte status,
             @RequestParam(required = false) String name,
             @RequestParam(required = false) Byte level) {

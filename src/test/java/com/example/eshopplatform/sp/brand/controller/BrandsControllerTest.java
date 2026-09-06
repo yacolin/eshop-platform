@@ -79,7 +79,7 @@ class BrandsControllerTest {
                 .thenReturn(PageResult.of(1, List.of(vo())));
 
         mockMvc.perform(get("/api/v1/brands")
-                        .param("name", "苹果").param("first_letter", "A").param("status", "1"))
+                        .param("name", "苹果").param("firstLetter", "A").param("status", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.list[0].firstLetter").value("A"));
     }

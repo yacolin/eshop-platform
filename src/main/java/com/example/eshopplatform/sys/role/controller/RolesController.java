@@ -48,9 +48,9 @@ public class RolesController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String name,
-            @RequestParam(required = false) String role_type,
+            @RequestParam(required = false) String roleType,
             @RequestParam(required = false) String status) {
-        return ApiResponse.ok(rolesService.page(page, size, role_type, name, status));
+        return ApiResponse.ok(rolesService.page(page, size, roleType, name, status));
     }
 
     @Operation(operationId = "getRoles", summary = "查询B端角色定义表详情")

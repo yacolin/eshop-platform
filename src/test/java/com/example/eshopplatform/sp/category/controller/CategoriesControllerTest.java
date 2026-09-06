@@ -76,7 +76,7 @@ class CategoriesControllerTest {
         when(categoriesService.page(eq(1), eq(10), eq(1L), isNull(), isNull(), isNull()))
                 .thenReturn(PageResult.of(1, List.of(vo(2L, "手机"))));
 
-        mockMvc.perform(get("/api/v1/categories").param("parent_id", "1"))
+        mockMvc.perform(get("/api/v1/categories").param("parentId", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.total").value(1))

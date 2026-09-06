@@ -41,9 +41,9 @@ public class CategoryAttributesController {
     @Operation(summary = "类目属性关联列表")
     @GetMapping
     public ApiResponse<List<CategoryAttributeVO>> list(
-            @RequestParam(name = "category_id", required = false) Long categoryId) {
+            @RequestParam(required = false) Long categoryId) {
         if (categoryId == null) {
-            throw BizException.badRequest("category_id 不能为空");
+            throw BizException.badRequest("categoryId 不能为空");
         }
         return ApiResponse.ok(categoryAttributesService.listByCategory(categoryId));
     }
