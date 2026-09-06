@@ -31,6 +31,13 @@ import java.util.Map;
  * （类名已去 {@code usr_} 前缀，{@code @TableName} 仍为 {@code usr_users}），
  * 同域 dto 生成 {@code UsersVO / UsersCreateReq / UsersUpdateReq} 等。
  *
+ * <p><b>域内业务子包</b>（工程约定）：当某域业务增多时，通过 {@link #SYS_BUSINESS}
+ * 登记"表名 → 域内业务"，按业务拆子包（业务→层），
+ * 如 {@code sys_roles} → {@code com.example.eshopplatform.sys.role.entity.Roles}、
+ * {@code sys_permissions} → {@code ...sys.permission...}、{@code sys_staff} →
+ * {@code ...sys.staff...}；跨业务共用的守卫等放 {@code ...sys.common}。
+ * 未登记的表仍按"域层平铺"生成，两种布局可并存。
+ *
  * <p><b>重复运行安全</b>：生成器默认不覆盖已存在文件（未开启 fileOverride），
  * 只新建缺失文件，已写好的业务改动不会被冲掉；模板/命名规则升级需先 git 提交、
  * 删除旧文件后再重新生成，并以 diff 核对。
@@ -50,9 +57,14 @@ public class CodeGenerator {
     /** 生成代码的根包（与主代码一致，勿改） */
     private static final String PARENT_PACKAGE = "com.example.eshopplatform";
 
-    /** 主代码根目录：src/main/java（产物直接落盘，生成后 diff 检查再提交） */
-    private static final String JAVA_DIR =
-            new File("").getAbsolutePath() + "/src/main/java";
+    /**
+     * 产物根目录：默认 src/main/java（生成后 diff 检查再提交）；
+     * 可用 {@code -Dgen.outputDir=<目录>} 覆盖（如试生成到 /tmp 验证包路径，勿提交产物）。
+     */
+    private static String outputDir() {
+        return System.getProperty("gen.outputDir",
+                new File("").getAbsolutePath() + "/src/main/java");
+    }
 
     public static void main(String[] args) throws Exception {
         // 数据库连接：默认与 src/main/resources/application.yml 开发配置一致，可用系统属性覆盖
@@ -72,18 +84,32 @@ public class CodeGenerator {
                 : listAllTables(url, username, password);
         System.out.println("待生成表(" + tables.size() + "): " + tables);
 
-        // 按表前缀分组 => 每个前缀是一个业务域模块，逐组执行生成
+        // 按生成单元（业务域模块，域内再按业务子模块分组）逐组执行生成：
+        // 默认 域 = 表前缀（sp_* -> sp）；sys 域通过 SYS_BUSINESS 细分出 role/staff/
+        // permission 业务包（sys_roles -> sys.role），关联表按归属挂到主业务侧。
         Map<String, List<String>> byModule = new LinkedHashMap<>();
         for (String table : tables) {
-            String module = moduleOf(table);
-            byModule.computeIfAbsent(module, k -> new ArrayList<>()).add(table);
+            String domain = moduleOf(table);
+            String business = SYS_BUSINESS.get(table);
+            String group = business == null ? domain : domain + "." + business;
+            byModule.computeIfAbsent(group, k -> new ArrayList<>()).add(table);
         }
         for (Map.Entry<String, List<String>> e : byModule.entrySet()) {
             generateModule(url, username, password, author, e.getKey(), e.getValue());
         }
-        System.out.println("生成完成。产物目录：\n  " + JAVA_DIR
+        System.out.println("生成完成。产物目录：\n  " + outputDir()
                 + "\n请 diff 检查后按业务域分批提交（勿把整个生成结果一次提交）。");
     }
+
+    /**
+     * sys 域"表名 -> 域内业务包名"映射：当域内业务增多时，不再整域层平铺生成，
+     * 而是按业务拆子包（com.example.eshopplatform.sys.{role,permission,staff}.*）。
+     * 未列出的表仍按域平铺（module=sys）。新增 sys 业务时在此登记。
+     */
+    private static final Map<String, String> SYS_BUSINESS = Map.of(
+            "sys_roles", "role",
+            "sys_permissions", "permission",
+            "sys_staff", "staff");
 
     /** 表前缀 = 业务域模块名（首个下划线前的小写词，如 sp_products -> sp）；无前缀表归入根包 */
     private static String moduleOf(String table) {
@@ -137,30 +163,40 @@ public class CodeGenerator {
         return q > 0 ? path.substring(0, q) : path;
     }
 
-    /** 对一个业务域模块执行 FastAutoGenerator */
+    /**
+     * 对一个生成单元执行 FastAutoGenerator。
+     *
+     * @param module 包名段：业务域，或"域.业务子模块"（如 sys.role，见 SYS_BUSINESS）。
+     *               产物包为 com.example.eshopplatform.<module>.<layer>，
+     *               类名去前缀取的是包名首段（sys.role -> sys_；sp -> sp_）。
+     */
     private static void generateModule(String url, String user, String pass, String author,
                                        String module, List<String> tables) {
         System.out.println(">> 生成模块 '" + module + "'，表: " + tables);
+        // 表前缀 = 模块包名首段 + 下划线（sys.role -> sys_）；用于类名去前缀
+        int dot = module.indexOf('.');
+        String prefix = (module.isEmpty() ? "" : module.substring(0, dot < 0 ? module.length() : dot) + "_");
 
         FastAutoGenerator.create(url, user, pass)
                 // 全局：作者 / 输出目录（直接落 src/main）
                 .globalConfig(builder -> builder
                         .author(author)
-                        .outputDir(JAVA_DIR)
+                        .outputDir(outputDir())
                         .disableOpenDir())
                 // 包结构：com.example.eshopplatform.<module>.{entity,mapper,service,controller}
+                //（module 可为"域.业务"，如 sys.role -> com.example.eshopplatform.sys.role.entity）
                 .packageConfig(builder -> {
                     builder.parent(PARENT_PACKAGE);
                     if (!module.isEmpty()) {
                         builder.moduleName(module);
                     }
                 })
-                // 命名：按模块去掉表前缀（类名不再带 sp/usr 等域前缀，如 sp_brands -> Brands，
-                // @TableName 仍保留原表名 sp_brands）
+                // 命名：按表前缀去掉域前缀（类名不再带 sys_ 等，如 sys_roles -> Roles，
+                // @TableName 仍保留原表名 sys_roles）
                 .strategyConfig(builder -> {
                     builder.addInclude(tables.toArray(new String[0]));
-                    if (!module.isEmpty()) {
-                        builder.addTablePrefix(module + "_");
+                    if (!prefix.isEmpty()) {
+                        builder.addTablePrefix(prefix);
                     }
                     builder.entityBuilder()
                             .enableLombok()                 // 实体用 Lombok（省 getter/setter）
