@@ -141,6 +141,7 @@ springdoc:
         - /api/v1/staff/**
         - /api/v1/attributes/**
         - /api/v1/attribute-values/**
+        - /api/v1/promotions/**
     - group: public
       display-name: 公开/小程序端
       paths-to-match:
@@ -173,6 +174,7 @@ eshop:
       - /api/v1/staff/login
       - /api/v1/staff/refresh
       - /api/v1/skus/**
+      - /api/v1/promotions/**
 
     # 管理端路径：仅后台管理员（/api/v1/auth/login 登录签发 token，user_type=1）可访问；
     # 暂无管理端接口，待对应业务域实现时按路径补入
