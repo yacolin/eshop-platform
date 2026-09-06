@@ -16,8 +16,6 @@ import com.example.eshopplatform.mkt.promotion.entity.Promotions;
 import com.example.eshopplatform.mkt.promotion.mapper.PromotionProductsMapper;
 import com.example.eshopplatform.mkt.promotion.mapper.PromotionRulesMapper;
 import com.example.eshopplatform.mkt.promotion.mapper.PromotionsMapper;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +25,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * <p>
@@ -43,11 +43,15 @@ import java.util.concurrent.ThreadLocalRandom;
 @RequiredArgsConstructor
 public class PromotionsService {
 
+    /** benefit_config 简单型 JSON 提取 {"type":数字} / {"value":数字} */
+    private static final Pattern PATTERN_BENEFIT_TYPE =
+            Pattern.compile("\"type\"\\s*:\\s*(-?\\d+)");
+    private static final Pattern PATTERN_BENEFIT_VALUE =
+            Pattern.compile("\"value\"\\s*:\\s*(-?\\d+)");
+
     private final PromotionsMapper promotionsMapper;
     private final PromotionRulesMapper promotionRulesMapper;
     private final PromotionProductsMapper promotionProductsMapper;
-
-    private final ObjectMapper objectMapper;
 
     /** 分页查询（第 page 页，每页 size 条；status/promoType 可选筛选） */
     public PageResult<PromotionsVO> page(int page, int size, Integer status, Integer promoType) {
@@ -263,16 +267,14 @@ public class PromotionsService {
         if (benefitConfig == null || benefitConfig.isBlank()) {
             return;
         }
-        try {
-            JsonNode node = objectMapper.readTree(benefitConfig);
-            if (node.has("type") && node.get("type").canConvertToInt()) {
-                vo.setBenefitType(node.get("type").asInt());
-            }
-            if (node.has("value") && node.get("value").canConvertToLong()) {
-                vo.setBenefitValue(node.get("value").asLong());
-            }
-        } catch (Exception ignored) {
-            // 阶梯/异常配置不在 VO 便捷字段体现
+        // 项目未引入 Jackson 自动装配，用轻量正则提取简单型 {"type":t,"value":v}
+        Matcher type = PATTERN_BENEFIT_TYPE.matcher(benefitConfig);
+        if (type.find()) {
+            vo.setBenefitType(Integer.valueOf(type.group(1)));
+        }
+        Matcher value = PATTERN_BENEFIT_VALUE.matcher(benefitConfig);
+        if (value.find()) {
+            vo.setBenefitValue(Long.valueOf(value.group(1)));
         }
     }
 
