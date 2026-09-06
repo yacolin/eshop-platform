@@ -37,7 +37,8 @@ import java.util.Map;
  * {@code sp_brands} → {@code ...sp.brand...}、{@code sp_products} → {@code ...sp.product...}。
  * 个别"归属/命名"需人工判断的表用 {@link #BUSINESS_EXCEPTIONS} 覆盖（如
  * {@code sys_role_permissions} → sys.permission、{@code sp_category_attributes} →
- * sp.categoryAttribute）。跨业务共用的守卫等放 {@code ...sys.common}。
+ * sp.categoryAttribute、{@code sp_category_brands} → sp.categoryBrand）。
+ * 跨业务共用的守卫等放 {@code ...sys.common}。
  * 无域前缀或无法推导的表才按"域层平铺"生成。
  *
  * <p><b>重复运行安全</b>：生成器默认不覆盖已存在文件（未开启 fileOverride），
@@ -110,13 +111,16 @@ public class CodeGenerator {
      *   <li>{@code sys_role_permissions}：按首段词应归 role，但其接口宿主是权限管理
      *       （/api/v1/permissions/roles/*），故归 permission；</li>
      *   <li>{@code sp_category_attributes}：需复合业务名 categoryAttribute，避免与未来
-     *       通用属性域（sp_attributes）混淆。</li>
+     *       通用属性域（sp_attributes）混淆；</li>
+     *   <li>{@code sp_category_brands}：需复合业务名 categoryBrand（类目-品牌关联独立成业务，
+     *       与 categoryAttribute 拆分口径一致）。</li>
      * </ul>
      * 其余表一律走通用规则 {@link #resolveBusinessOf(String)}，无需登记。
      */
     private static final Map<String, String> BUSINESS_EXCEPTIONS = Map.of(
             "sys_role_permissions", "permission",
-            "sp_category_attributes", "categoryAttribute");
+            "sp_category_attributes", "categoryAttribute",
+            "sp_category_brands", "categoryBrand");
 
     /**
      * 推导表所属的域内业务名：
