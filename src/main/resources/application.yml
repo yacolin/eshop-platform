@@ -149,6 +149,7 @@ springdoc:
         - /api/v1/brands/**
         - /api/v1/categories/**
         - /api/v1/category-attributes/**
+        - /api/v1/skus/**
 
 # ---------- 6. Security（白名单 + CORS） ----------
 eshop:
@@ -171,6 +172,7 @@ eshop:
       # B端员工认证：登录与刷新无需认证（其余 /api/v1/staff/** 需 ROLE_STAFF）
       - /api/v1/staff/login
       - /api/v1/staff/refresh
+      - /api/v1/skus/**
 
     # 管理端路径：仅后台管理员（/api/v1/auth/login 登录签发 token，user_type=1）可访问；
     # 暂无管理端接口，待对应业务域实现时按路径补入
