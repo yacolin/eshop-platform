@@ -2,11 +2,11 @@ package com.example.eshopplatform.sp.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.eshopplatform.common.BizException;
-import com.example.eshopplatform.sp.dto.CategoryAttributeBatchReq;
-import com.example.eshopplatform.sp.dto.CategoryAttributeCreateReq;
-import com.example.eshopplatform.sp.dto.CategoryAttributeVO;
-import com.example.eshopplatform.sp.entity.CategoryAttributes;
-import com.example.eshopplatform.sp.mapper.CategoryAttributesMapper;
+import com.example.eshopplatform.sp.categoryAttribute.dto.CategoryAttributeBatchReq;
+import com.example.eshopplatform.sp.categoryAttribute.dto.CategoryAttributeCreateReq;
+import com.example.eshopplatform.sp.categoryAttribute.dto.CategoryAttributeVO;
+import com.example.eshopplatform.sp.categoryAttribute.entity.CategoryAttributes;
+import com.example.eshopplatform.sp.categoryAttribute.mapper.CategoryAttributesMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

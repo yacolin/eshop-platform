@@ -2,10 +2,10 @@ package com.example.eshopplatform.sp.controller;
 
 import com.example.eshopplatform.common.ApiResponse;
 import com.example.eshopplatform.common.BizException;
-import com.example.eshopplatform.sp.dto.CategoryAttributeBatchReq;
-import com.example.eshopplatform.sp.dto.CategoryAttributeCreateReq;
-import com.example.eshopplatform.sp.dto.CategoryAttributeVO;
-import com.example.eshopplatform.sp.service.CategoryAttributesService;
+import com.example.eshopplatform.sp.categoryAttribute.dto.CategoryAttributeBatchReq;
+import com.example.eshopplatform.sp.categoryAttribute.dto.CategoryAttributeCreateReq;
+import com.example.eshopplatform.sp.categoryAttribute.dto.CategoryAttributeVO;
+import com.example.eshopplatform.sp.categoryAttribute.service.CategoryAttributesService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

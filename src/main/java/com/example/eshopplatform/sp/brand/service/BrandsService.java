@@ -2,10 +2,10 @@ package com.example.eshopplatform.sp.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.example.eshopplatform.sp.mapper.BrandsMapper;
-import com.example.eshopplatform.sp.entity.Brands;
-import com.example.eshopplatform.sp.dto.BrandsReq;
-import com.example.eshopplatform.sp.dto.BrandsVO;
+import com.example.eshopplatform.sp.brand.mapper.BrandsMapper;
+import com.example.eshopplatform.sp.brand.entity.Brands;
+import com.example.eshopplatform.sp.brand.dto.BrandsReq;
+import com.example.eshopplatform.sp.brand.dto.BrandsVO;
 import com.example.eshopplatform.common.BizException;
 import com.example.eshopplatform.common.PageResult;
 import lombok.RequiredArgsConstructor;

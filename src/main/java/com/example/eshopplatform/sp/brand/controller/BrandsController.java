@@ -2,9 +2,9 @@ package com.example.eshopplatform.sp.controller;
 
 import com.example.eshopplatform.common.ApiResponse;
 import com.example.eshopplatform.common.PageResult;
-import com.example.eshopplatform.sp.dto.BrandsReq;
-import com.example.eshopplatform.sp.dto.BrandsVO;
-import com.example.eshopplatform.sp.service.BrandsService;
+import com.example.eshopplatform.sp.brand.dto.BrandsReq;
+import com.example.eshopplatform.sp.brand.dto.BrandsVO;
+import com.example.eshopplatform.sp.brand.service.BrandsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
