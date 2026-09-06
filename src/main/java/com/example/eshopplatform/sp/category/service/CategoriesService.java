@@ -7,22 +7,13 @@ import com.example.eshopplatform.common.PageResult;
 import com.example.eshopplatform.sp.category.dto.CategoriesReq;
 import com.example.eshopplatform.sp.category.dto.CategoriesTreeVO;
 import com.example.eshopplatform.sp.category.dto.CategoriesVO;
-import com.example.eshopplatform.sp.category.dto.CategoryBrandUpdateReq;
-import com.example.eshopplatform.sp.category.dto.CategoryBrandVO;
-import com.example.eshopplatform.sp.brand.entity.Brands;
 import com.example.eshopplatform.sp.category.entity.Categories;
-import com.example.eshopplatform.sp.category.entity.CategoryBrands;
-import com.example.eshopplatform.sp.brand.mapper.BrandsMapper;
 import com.example.eshopplatform.sp.category.mapper.CategoriesMapper;
-import com.example.eshopplatform.sp.category.mapper.CategoryBrandsMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * <p>
@@ -41,8 +32,6 @@ public class CategoriesService {
 
     /** 数据访问层 */
     private final CategoriesMapper categoriesMapper;
-    private final CategoryBrandsMapper categoryBrandsMapper;
-    private final BrandsMapper brandsMapper;
 
     /**
      * 分页查询类目（平铺列表，第 page 页，每页 size 条）。
@@ -116,64 +105,6 @@ public class CategoriesService {
         }
         wrapper.orderByAsc(Categories::getSortOrder).orderByAsc(Categories::getId);
         return buildTree(categoriesMapper.selectList(wrapper), 0L);
-    }
-
-    /** 类目下品牌列表（关联记录 + 品牌详情，按关联排序权重升序） */
-    public List<CategoryBrandVO> listCategoryBrands(Long categoryId) {
-        List<CategoryBrands> rels = categoryBrandsMapper.selectList(new LambdaQueryWrapper<CategoryBrands>()
-                .eq(CategoryBrands::getCategoryId, categoryId)
-                .orderByAsc(CategoryBrands::getSortOrder)
-                .orderByDesc(CategoryBrands::getId));
-        if (rels.isEmpty()) {
-            return List.of();
-        }
-        Map<Long, Brands> brandMap = brandsMapper.selectBatchIds(
-                        rels.stream().map(CategoryBrands::getBrandId).distinct().toList())
-                .stream().collect(Collectors.toMap(Brands::getId, b -> b));
-        List<CategoryBrandVO> list = new ArrayList<>(rels.size());
-        for (CategoryBrands rel : rels) {
-            CategoryBrandVO vo = new CategoryBrandVO();
-            vo.setId(rel.getId());
-            vo.setCategoryId(rel.getCategoryId());
-            vo.setBrandId(rel.getBrandId());
-            vo.setSortOrder(rel.getSortOrder());
-            Brands brand = brandMap.get(rel.getBrandId());
-            if (brand != null) {
-                vo.setBrandName(brand.getName());
-                vo.setEnglishName(brand.getEnglishName());
-                vo.setLogoUrl(brand.getLogoUrl());
-                vo.setFirstLetter(brand.getFirstLetter());
-            }
-            list.add(vo);
-        }
-        return list;
-    }
-
-    /**
-     * 全量替换类目下品牌关联（先删旧关联、再按序插入，事务内完成）。
-     * 类目需存在；品牌列表非空且全部存在。
-     */
-    @Transactional(rollbackFor = Exception.class)
-    public void replaceCategoryBrands(Long categoryId, CategoryBrandUpdateReq req) {
-        require(categoryId);
-        List<Long> brandIds = req.getBrandIds();
-        if (brandIds == null || brandIds.isEmpty()) {
-            throw BizException.badRequest("品牌列表不能为空");
-        }
-        long exist = brandsMapper.selectCount(new LambdaQueryWrapper<Brands>()
-                .in(Brands::getId, brandIds));
-        if (exist != brandIds.size()) {
-            throw BizException.badRequest("存在无效的品牌ID");
-        }
-        categoryBrandsMapper.delete(new LambdaQueryWrapper<CategoryBrands>()
-                .eq(CategoryBrands::getCategoryId, categoryId));
-        for (Long brandId : brandIds) {
-            CategoryBrands rel = new CategoryBrands();
-            rel.setCategoryId(categoryId);
-            rel.setBrandId(brandId);
-            rel.setSortOrder(req.getSortOrder());
-            categoryBrandsMapper.insert(rel);
-        }
     }
 
     /** 按主键查询 */

@@ -1,4 +1,4 @@
-package com.example.eshopplatform.sp.category.entity;
+package com.example.eshopplatform.sp.categoryBrand.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;

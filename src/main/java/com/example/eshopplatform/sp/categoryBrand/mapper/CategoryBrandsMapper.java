@@ -1,7 +1,7 @@
-package com.example.eshopplatform.sp.category.mapper;
+package com.example.eshopplatform.sp.categoryBrand.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.example.eshopplatform.sp.category.entity.CategoryBrands;
+import com.example.eshopplatform.sp.categoryBrand.entity.CategoryBrands;
 import org.apache.ibatis.annotations.Mapper;
 
 /**

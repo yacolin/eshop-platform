@@ -6,8 +6,6 @@ import com.example.eshopplatform.sp.category.dto.CategoriesReq;
 import com.example.eshopplatform.sp.category.dto.CategoriesTreeVO;
 import com.example.eshopplatform.sp.category.dto.CategoriesVO;
 import com.example.eshopplatform.sp.categoryAttribute.dto.CategoryAttributeVO;
-import com.example.eshopplatform.sp.category.dto.CategoryBrandUpdateReq;
-import com.example.eshopplatform.sp.category.dto.CategoryBrandVO;
 import com.example.eshopplatform.sp.category.service.CategoriesService;
 import com.example.eshopplatform.sp.categoryAttribute.service.CategoryAttributesService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -32,7 +30,7 @@ import java.util.List;
  * </p>
  *
  * <p>查询覆盖：平铺分页（parent_id/status/name/level 筛选）、全部/根/非根、
- * 子级/层级/树形、详情；子资源：类目下品牌列表与全量替换、类目推荐属性。
+ * 子级/层级/树形、详情；子资源：类目推荐属性（类目-品牌关联见 categoryBrand 业务）。
  * 路径已加入 application.yml 的公开 whitelist 与 springdoc public 分组。</p>
  *
  * @since 2026-09-03
@@ -92,20 +90,6 @@ public class CategoriesController {
     @GetMapping("/tree")
     public ApiResponse<List<CategoriesTreeVO>> tree(@RequestParam(required = false) Byte status) {
         return ApiResponse.ok(categoriesService.tree(status));
-    }
-
-    @Operation(summary = "类目下品牌列表（关联 + 品牌详情）")
-    @GetMapping("/{id}/brands")
-    public ApiResponse<List<CategoryBrandVO>> brands(@PathVariable Long id) {
-        return ApiResponse.ok(categoriesService.listCategoryBrands(id));
-    }
-
-    @Operation(summary = "类目关联品牌（全量替换）")
-    @PutMapping("/{id}/brands")
-    public ApiResponse<Void> updateBrands(@PathVariable Long id,
-                                          @RequestBody CategoryBrandUpdateReq req) {
-        categoriesService.replaceCategoryBrands(id, req);
-        return ApiResponse.ok(null);
     }
 
     @Operation(summary = "类目推荐属性列表")

@@ -9,7 +9,6 @@ import com.example.eshopplatform.security.JwtTokenProvider;
 import com.example.eshopplatform.sp.category.dto.CategoriesTreeVO;
 import com.example.eshopplatform.sp.category.dto.CategoriesVO;
 import com.example.eshopplatform.sp.categoryAttribute.dto.CategoryAttributeVO;
-import com.example.eshopplatform.sp.category.dto.CategoryBrandVO;
 import com.example.eshopplatform.sp.category.service.CategoriesService;
 import com.example.eshopplatform.sp.categoryAttribute.service.CategoryAttributesService;
 import org.junit.jupiter.api.Test;
@@ -29,7 +28,6 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -134,31 +132,6 @@ class CategoriesControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].name").value("电子产品"))
                 .andExpect(jsonPath("$.data[0].children[0].name").value("手机"));
-    }
-
-    @Test
-    void categoryBrands_shouldReturnItems() throws Exception {
-        CategoryBrandVO item = new CategoryBrandVO();
-        item.setId(1L);
-        item.setCategoryId(1L);
-        item.setBrandId(10L);
-        item.setSortOrder(1);
-        item.setBrandName("苹果");
-        when(categoriesService.listCategoryBrands(1L)).thenReturn(List.of(item));
-
-        mockMvc.perform(get("/api/v1/categories/1/brands"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].brandName").value("苹果"));
-    }
-
-    @Test
-    void updateCategoryBrands_shouldReplace() throws Exception {
-        mockMvc.perform(put("/api/v1/categories/1/brands")
-                        .contentType("application/json")
-                        .content("{\"brandIds\":[10,20],\"sortOrder\":1}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(0));
-        verify(categoriesService).replaceCategoryBrands(eq(1L), any());
     }
 
     @Test
