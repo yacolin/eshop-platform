@@ -1,4 +1,4 @@
-package com.example.eshopplatform.sp.mapper;
+package com.example.eshopplatform.sp.brand.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.example.eshopplatform.sp.brand.entity.Brands;

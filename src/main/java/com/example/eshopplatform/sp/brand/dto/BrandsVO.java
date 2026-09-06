@@ -1,4 +1,4 @@
-package com.example.eshopplatform.sp.dto;
+package com.example.eshopplatform.sp.brand.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;

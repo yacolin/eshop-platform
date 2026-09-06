@@ -1,4 +1,4 @@
-package com.example.eshopplatform.sp.controller;
+package com.example.eshopplatform.sp.brand.controller;
 
 import com.example.eshopplatform.common.BizException;
 import com.example.eshopplatform.common.ErrorCode;

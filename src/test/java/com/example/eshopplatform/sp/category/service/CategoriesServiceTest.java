@@ -1,4 +1,4 @@
-package com.example.eshopplatform.sp.service;
+package com.example.eshopplatform.sp.category.service;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;

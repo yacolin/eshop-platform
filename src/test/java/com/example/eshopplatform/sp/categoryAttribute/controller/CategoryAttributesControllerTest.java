@@ -1,4 +1,4 @@
-package com.example.eshopplatform.sp.controller;
+package com.example.eshopplatform.sp.categoryAttribute.controller;
 
 import com.example.eshopplatform.config.SecurityConfig;
 import com.example.eshopplatform.config.SecurityProperties;

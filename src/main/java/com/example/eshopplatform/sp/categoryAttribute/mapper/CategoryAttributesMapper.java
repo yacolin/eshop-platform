@@ -1,4 +1,4 @@
-package com.example.eshopplatform.sp.mapper;
+package com.example.eshopplatform.sp.categoryAttribute.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.example.eshopplatform.sp.categoryAttribute.entity.CategoryAttributes;
