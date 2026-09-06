@@ -10,7 +10,6 @@ import com.example.eshopplatform.sys.dto.RolesVO;
 import com.example.eshopplatform.common.BizException;
 import com.example.eshopplatform.common.PageResult;
 import com.example.eshopplatform.common.TimeUtil;
-import com.example.eshopplatform.security.UserContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -25,7 +24,7 @@ import org.springframework.stereotype.Service;
  * created_at/updated_at/deleted_at 等自动列一律不进 apply。
  * 语义约定：update 为 DTO 覆盖（null 字段保留原值，非全量重置）；delete 默认逻辑删除
  * （表含 deleted_at 时实体自动标 @TableLogic，无该列的表才是物理删除）。
- * 角色管理整体要求 B端管理员（当前员工持 builtin 角色，见 {@link #requireAdmin()}），
+ * 角色管理整体要求 B端管理员（当前员工持 builtin 角色，见 {@link SysAdminGuard}），
  * 对齐 gf-eshop：Roles 控制器整体挂在 RequireAdmin 中间件下。
  * 以下为基础 CRUD，接入真实业务时按需加查询条件、校验与权限逻辑。</p>
  *
@@ -38,13 +37,16 @@ public class RolesService {
     /** 数据访问层 */
     private final RolesMapper rolesMapper;
 
+    /** B端管理员守卫（角色管理整体需管理员） */
+    private final SysAdminGuard sysAdminGuard;
+
     /** roleType 取值域（DB 字符串枚举，见 sys_roles.role_type 注释与种子：builtin-系统内置 custom-自定义） */
     private static final String ROLE_TYPE_BUILTIN = "builtin";
     private static final String ROLE_TYPE_CUSTOM = "custom";
 
     /** 分页查询（第 page 页，每页 size 条；需管理员） */
     public PageResult<RolesVO> page(int page, int size, String role_type, String name, String status) {
-        requireAdmin();
+        sysAdminGuard.requireAdmin();
         Page<Roles> p = new Page<>(normalizePage(page), normalizeSize(size));
         LambdaQueryWrapper<Roles> wrapper = new LambdaQueryWrapper<Roles>()
                 .eq(role_type != null, Roles::getRoleType, role_type)
@@ -76,7 +78,7 @@ public class RolesService {
 
     /** 按主键查询（需管理员） */
     public RolesVO getById(Long id) {
-        requireAdmin();
+        sysAdminGuard.requireAdmin();
         return toVO(require(id));
     }
 
@@ -94,7 +96,7 @@ public class RolesService {
      * </ul>
      */
     public RolesVO create(RolesCreateReq req) {
-        requireAdmin();
+        sysAdminGuard.requireAdmin();
         checkRoleType(req.getRoleType());
         if (ROLE_TYPE_BUILTIN.equals(req.getRoleType())) {
             throw BizException.forbidden("系统内置角色（builtin）不允许通过接口创建");
@@ -123,7 +125,7 @@ public class RolesService {
      * sortOrder 等展示字段仍可编辑）。
      */
     public RolesVO update(Long id, RolesUpdateReq req) {
-        requireAdmin();
+        sysAdminGuard.requireAdmin();
         Roles entity = require(id);
         checkRoleType(req.getRoleType());
         if (ROLE_TYPE_BUILTIN.equals(entity.getRoleType())
@@ -157,17 +159,9 @@ public class RolesService {
      * }</pre>
      */
     public void delete(Long id) {
-        requireAdmin();
+        sysAdminGuard.requireAdmin();
         require(id);
         rolesMapper.deleteById(id);
-    }
-
-    /** 管理员判定（对齐 gf IsAdmin）：当前员工须为 staff 令牌且持 builtin 角色 */
-    private void requireAdmin() {
-        Long staffId = UserContext.getStaffId();
-        if (rolesMapper.countBuiltinRolesOfStaff(staffId) == 0) {
-            throw BizException.forbidden("无权限，需要管理员角色");
-        }
     }
 
     /**

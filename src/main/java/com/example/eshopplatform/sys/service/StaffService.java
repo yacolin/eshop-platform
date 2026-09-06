@@ -1,13 +1,21 @@
 package com.example.eshopplatform.sys.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.eshopplatform.common.BizException;
+import com.example.eshopplatform.common.PageResult;
+import com.example.eshopplatform.common.TimeUtil;
 import com.example.eshopplatform.security.JwtTokenProvider;
 import com.example.eshopplatform.security.UserContext;
+import com.example.eshopplatform.sys.dto.StaffAssignRolesReq;
+import com.example.eshopplatform.sys.dto.StaffCreateReq;
+import com.example.eshopplatform.sys.dto.StaffListItemVO;
 import com.example.eshopplatform.sys.dto.StaffLoginVO;
 import com.example.eshopplatform.sys.dto.StaffPermissionsVO;
 import com.example.eshopplatform.sys.dto.StaffProfileVO;
 import com.example.eshopplatform.sys.dto.StaffTokenVO;
+import com.example.eshopplatform.sys.dto.StaffUpdateReq;
+import com.example.eshopplatform.sys.entity.Roles;
 import com.example.eshopplatform.sys.entity.Staff;
 import com.example.eshopplatform.sys.mapper.PermissionsMapper;
 import com.example.eshopplatform.sys.mapper.RolesMapper;
@@ -18,21 +26,24 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
  * <p>
- * B端员工认证服务（sys_staff）——对齐 gf-eshop staff 业务：
- * 登录（bcrypt 校验 + 记登录历史 + 刷新令牌 Redis 白名单）、刷新（轮换）、登出、
- * 当前员工资料与角色/权限。
+ * B端员工业务（sys_staff）——认证（对齐 gf-eshop staff）+ 员工管理：
+ * 列表（含角色/部门归属）、新增、更新、删除、分配角色（PUT /staff/{id}/roles）。
  * </p>
  *
- * <p>说明：access token 只携带声明（不查库），员工状态（禁用）在登录/刷新时落库校验；
- * “是否管理员”不写进令牌，由业务层按“是否持 builtin 角色”动态判定（见 RolesService/
- * PermissionsService 的 requireAdmin）。</p>
+ * <p>权限：认证接口（login/refresh）白名单；profile/permissions/列表任意 B端员工；
+ * 员工新增/更新/删除/分配角色为管理操作（{@link SysAdminGuard}）。
+ * 关联表（sys_staff_roles / sys_staff_departments）与角色-权限一致，采用
+ * "物理清空 + 批量写入"的替换式维护（唯一键下软删行会挡路）。</p>
  *
  * @since 2026-09-06
  */
@@ -46,9 +57,12 @@ public class StaffService {
     private final StaffMapper staffMapper;
     private final RolesMapper rolesMapper;
     private final PermissionsMapper permissionsMapper;
+    private final SysAdminGuard sysAdminGuard;
     private final JwtTokenProvider tokenProvider;
     private final PasswordEncoder passwordEncoder;
     private final StringRedisTemplate redis;
+
+    // ==================== 认证 ====================
 
     /** 员工登录 */
     public StaffLoginVO login(String username, String password, String ip, String device) {
@@ -94,13 +108,10 @@ public class StaffService {
         }
     }
 
-    /** 当前员工资料（部门域业务落地前，部门列表返回空） */
+    /** 当前员工资料（含所属部门） */
     public StaffProfileVO profile() {
         Long staffId = UserContext.getStaffId();
-        Staff staff = staffMapper.selectById(staffId);
-        if (staff == null) {
-            throw BizException.notFound("员工不存在");
-        }
+        Staff staff = require(staffId);
         StaffProfileVO vo = new StaffProfileVO();
         vo.setId(staff.getId());
         vo.setUsername(staff.getUsername());
@@ -110,6 +121,8 @@ public class StaffService {
         vo.setAvatar(staff.getAvatar());
         vo.setStatus(staff.getStatus());
         vo.setLastLoginIp(staff.getLastLoginIp());
+        vo.setDepartmentIds(staffMapper.selectDepartmentIdsByStaffId(staffId));
+        vo.setDepartmentNames(staffMapper.selectDepartmentNamesByStaffId(staffId));
         return vo;
     }
 
@@ -120,6 +133,189 @@ public class StaffService {
         vo.setRoles(rolesMapper.selectRoleNamesByStaffId(staffId));
         vo.setPermissions(permissionsMapper.selectPermissionNamesByStaffId(staffId));
         return vo;
+    }
+
+    // ==================== 员工管理（写操作需管理员） ====================
+
+    /** 员工分页列表（任意 B端员工可查），keyword 匹配用户名/姓名，含角色与部门归属 */
+    public PageResult<StaffListItemVO> page(int page, int size, String keyword, String status) {
+        Page<Staff> p = new Page<>(Math.max(page, 1), Math.min(Math.max(size, 1), 1000));
+        LambdaQueryWrapper<Staff> wrapper = new LambdaQueryWrapper<>();
+        if (keyword != null && !keyword.isBlank()) {
+            wrapper.and(w -> w.like(Staff::getUsername, keyword)
+                    .or().like(Staff::getRealName, keyword));
+        }
+        Boolean st = parseStatus(status);
+        wrapper.eq(st != null, Staff::getStatus, st);
+        wrapper.orderByDesc(Staff::getId);
+        staffMapper.selectPage(p, wrapper);
+        return PageResult.of(p.getTotal(), p.getRecords().stream().map(this::toListItem).toList());
+    }
+
+    /** 新增员工（需管理员），可同时指定部门归属 */
+    @Transactional(rollbackFor = Exception.class)
+    public StaffListItemVO create(StaffCreateReq req) {
+        sysAdminGuard.requireAdmin();
+        checkUsernameUnique(req.getUsername(), null);
+        Staff staff = new Staff();
+        staff.setUsername(req.getUsername().trim());
+        staff.setPasswordHash(passwordEncoder.encode(req.getPassword()));
+        staff.setRealName(req.getRealName() == null ? "" : req.getRealName());
+        staff.setEmail(req.getEmail());
+        staff.setPhone(req.getPhone());
+        staff.setAvatar(req.getAvatar());
+        staff.setStatus(req.getStatus() == null ? Boolean.TRUE : req.getStatus());
+        staffMapper.insert(staff);
+        replaceDepartments(staff.getId(), req.getDepartmentIds());
+        return toListItem(staff);
+    }
+
+    /**
+     * 更新员工（需管理员）。username 不允许改；password 空/缺省 = 不重置；
+     * departmentIds 缺省 = 不变，传入（可为空数组）= 替换部门归属。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public StaffListItemVO update(Long id, StaffUpdateReq req) {
+        sysAdminGuard.requireAdmin();
+        Staff staff = require(id);
+        if (req.getRealName() != null) {
+            staff.setRealName(req.getRealName());
+        }
+        if (req.getEmail() != null) {
+            staff.setEmail(req.getEmail());
+        }
+        if (req.getPhone() != null) {
+            staff.setPhone(req.getPhone());
+        }
+        if (req.getAvatar() != null) {
+            staff.setAvatar(req.getAvatar());
+        }
+        if (req.getStatus() != null) {
+            staff.setStatus(req.getStatus());
+        }
+        if (req.getPassword() != null && !req.getPassword().isBlank()) {
+            staff.setPasswordHash(passwordEncoder.encode(req.getPassword()));
+        }
+        if (req.getDepartmentIds() != null) {
+            replaceDepartments(id, req.getDepartmentIds());
+        }
+        staffMapper.updateById(staff);
+        return toListItem(staff);
+    }
+
+    /** 删除员工（需管理员；逻辑删除）。不允许删除自己与持 builtin 角色的系统管理员 */
+    public void delete(Long id) {
+        sysAdminGuard.requireAdmin();
+        if (UserContext.getStaffId().equals(id)) {
+            throw BizException.forbidden("不能删除当前登录的自己");
+        }
+        require(id);
+        if (rolesMapper.countBuiltinRolesOfStaff(id) > 0) {
+            throw BizException.forbidden("系统管理员（持 builtin 角色）不允许删除");
+        }
+        staffMapper.deleteById(id);
+    }
+
+    /** 分配员工角色（需管理员）：整表替换，空数组=清空 */
+    @Transactional(rollbackFor = Exception.class)
+    public void assignRoles(Long staffId, StaffAssignRolesReq req) {
+        sysAdminGuard.requireAdmin();
+        require(staffId);
+        List<Long> ids = normalizeIds(req.getRoleIds());
+        if (!ids.isEmpty()) {
+            long n = rolesMapper.selectCount(new LambdaQueryWrapper<Roles>()
+                    .in(Roles::getId, ids));
+            if (n != ids.size()) {
+                throw BizException.badRequest("包含不存在或已删除的角色ID");
+            }
+        }
+        staffMapper.deleteStaffRoles(staffId);
+        if (!ids.isEmpty()) {
+            staffMapper.insertStaffRoles(staffId, ids);
+        }
+    }
+
+    // ==================== 私有工具 ====================
+
+    /** 员工详情/行 → 列表项（含角色与部门归属） */
+    private StaffListItemVO toListItem(Staff staff) {
+        StaffListItemVO vo = new StaffListItemVO();
+        vo.setId(staff.getId());
+        vo.setUsername(staff.getUsername());
+        vo.setRealName(staff.getRealName());
+        vo.setEmail(staff.getEmail());
+        vo.setPhone(staff.getPhone());
+        vo.setAvatar(staff.getAvatar());
+        vo.setStatus(staff.getStatus());
+        vo.setLastLoginIp(staff.getLastLoginIp());
+        vo.setLastLoginAt(TimeUtil.toEpochMillis(staff.getLastLoginAt()));
+        vo.setCreatedAt(TimeUtil.toEpochMillis(staff.getCreatedAt()));
+        Long staffId = staff.getId();
+        vo.setRoleIds(rolesMapper.selectRoleIdsByStaffId(staffId));
+        vo.setRoleNames(rolesMapper.selectRoleNamesByStaffId(staffId));
+        vo.setDepartmentIds(staffMapper.selectDepartmentIdsByStaffId(staffId));
+        vo.setDepartmentNames(staffMapper.selectDepartmentNamesByStaffId(staffId));
+        return vo;
+    }
+
+    /** 替换员工部门归属（departmentIds 为 null 时不做任何变更） */
+    private void replaceDepartments(Long staffId, List<Long> departmentIds) {
+        if (departmentIds == null) {
+            return;
+        }
+        List<Long> ids = normalizeIds(departmentIds);
+        if (!ids.isEmpty() && staffMapper.countExistingDepartments(ids) != ids.size()) {
+            throw BizException.badRequest("包含不存在或已删除的部门ID");
+        }
+        staffMapper.deleteStaffDepartments(staffId);
+        if (!ids.isEmpty()) {
+            staffMapper.insertStaffDepartments(staffId, ids);
+        }
+    }
+
+    /** 用户名唯一性校验（sys_staff.uk_username） */
+    private void checkUsernameUnique(String username, Long excludeId) {
+        if (username == null || username.isBlank()) {
+            return;
+        }
+        LambdaQueryWrapper<Staff> wrapper = new LambdaQueryWrapper<Staff>()
+                .eq(Staff::getUsername, username.trim());
+        if (excludeId != null) {
+            wrapper.ne(Staff::getId, excludeId);
+        }
+        if (staffMapper.selectCount(wrapper) > 0) {
+            throw BizException.conflict("用户名已存在");
+        }
+    }
+
+    /** 按主键查询员工，不存在抛 404 */
+    private Staff require(Long id) {
+        Staff staff = staffMapper.selectById(id);
+        if (staff == null) {
+            throw BizException.notFound("员工不存在");
+        }
+        return staff;
+    }
+
+    private static List<Long> normalizeIds(List<Long> ids) {
+        if (ids == null) {
+            return List.of();
+        }
+        return ids.stream().filter(Objects::nonNull).distinct().toList();
+    }
+
+    /** 兼容 1/0 与 true/false 的状态筛参；无法解析时返回 null（不筛） */
+    private static Boolean parseStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return null;
+        }
+        if ("1".equals(status) || "true".equalsIgnoreCase(status)) {
+            return Boolean.TRUE;
+        }
+        if ("0".equals(status) || "false".equalsIgnoreCase(status)) {
+            return Boolean.FALSE;
+        }
+        return null;
     }
 
     /** 签发令牌对、Redis 白名单登记刷新令牌、更新最后登录信息并记登录历史 */

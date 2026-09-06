@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
  * <ul>
  *   <li>GET /permissions 列表 / GET /permissions/{id} 详情：任意 B端员工；</li>
  *   <li>POST/PUT/DELETE /permissions、GET/PUT /permissions/roles/{roleId}：需管理员
- *       （当前员工持 builtin 角色，见 {@link #requireAdmin()}）；</li>
+ *       （当前员工持 builtin 角色，见 {@link SysAdminGuard}）；</li>
  *   <li>POST /permissions/check：按单权限标识（name）校验当前员工是否拥有，返回布尔。</li>
  * </ul></p>
  *
@@ -50,8 +50,11 @@ public class PermissionsService {
     /** 数据访问层 */
     private final PermissionsMapper permissionsMapper;
 
-    /** 角色（校验角色存在 / 管理员判定） */
+    /** 角色（校验角色存在） */
     private final RolesMapper rolesMapper;
+
+    /** B端管理员守卫（权限增删改与角色授权编排需管理员） */
+    private final SysAdminGuard sysAdminGuard;
 
     /** 分页查询（第 page 页，每页 size 条） */
     public PageResult<PermissionsVO> page(int page, int size, String resource, String action, String category, String status) {
@@ -80,7 +83,7 @@ public class PermissionsService {
      * </ul>
      */
     public PermissionsVO create(PermissionsCreateReq req) {
-        requireAdmin();
+        sysAdminGuard.requireAdmin();
         checkNameUnique(req.getName(), null);
         Permissions entity = new Permissions();
         apply(entity, req);
@@ -99,7 +102,7 @@ public class PermissionsService {
      * ? Boolean.TRUE : req.getStatus())）。
      */
     public PermissionsVO update(Long id, PermissionsUpdateReq req) {
-        requireAdmin();
+        sysAdminGuard.requireAdmin();
         Permissions entity = require(id);
         checkNameUnique(req.getName(), id);
         apply(entity, req);
@@ -114,7 +117,7 @@ public class PermissionsService {
      * （status=false，不删除、不丢授权关系）。
      */
     public void delete(Long id) {
-        requireAdmin();
+        sysAdminGuard.requireAdmin();
         require(id);
         if (permissionsMapper.countRoleRefs(id) > 0) {
             throw BizException.conflict("该权限仍被角色引用，请先从对应角色的权限列表中移除（PUT /permissions/roles/{roleId}）");
@@ -128,7 +131,7 @@ public class PermissionsService {
      * 查询角色已授予的权限列表（平台范围），按 sort_order,id 升序。角色不存在返回空列表。
      */
     public PermissionsVO[] getPermissionsByRoleId(Long roleId) {
-        requireAdmin();
+        sysAdminGuard.requireAdmin();
         return permissionsMapper.selectByRoleId(roleId).stream()
                 .map(this::toVO)
                 .toArray(PermissionsVO[]::new);
@@ -142,7 +145,7 @@ public class PermissionsService {
      */
     @Transactional(rollbackFor = Exception.class)
     public void putPermissionsByRoleId(Long roleId, List<Long> permissionIds) {
-        requireAdmin();
+        sysAdminGuard.requireAdmin();
         requireRole(roleId);
         List<Long> ids = permissionIds == null ? List.of()
                 : permissionIds.stream().filter(Objects::nonNull).distinct().toList();
@@ -181,14 +184,6 @@ public class PermissionsService {
     }
 
     // ==================== 私有工具 ====================
-
-    /** 管理员判定（对齐 gf IsAdmin）：当前员工须为 staff 令牌且持 builtin 角色 */
-    private void requireAdmin() {
-        Long staffId = UserContext.getStaffId();
-        if (rolesMapper.countBuiltinRolesOfStaff(staffId) == 0) {
-            throw BizException.forbidden("无权限，需要管理员角色");
-        }
-    }
 
     /** 权限标识唯一性校验（sys_permissions.uk_name），更新时排除自身 */
     private void checkNameUnique(String name, Long excludeId) {

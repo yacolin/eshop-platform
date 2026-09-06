@@ -21,6 +21,16 @@ import java.util.List;
 public interface RolesMapper extends BaseMapper<Roles> {
 
     /**
+     * 员工所挂全部角色 ID（按 sort_order,id 升序，与 {@link #selectRoleNamesByStaffId} 同序）。
+     */
+    @Select("SELECT r.id FROM sys_roles r "
+            + "JOIN sys_staff_roles sr ON sr.role_id = r.id "
+            + "WHERE sr.staff_id = #{staffId} "
+            + "AND sr.deleted_at IS NULL AND r.deleted_at IS NULL "
+            + "ORDER BY r.sort_order, r.id")
+    List<Long> selectRoleIdsByStaffId(@Param("staffId") Long staffId);
+
+    /**
      * 员工所挂全部角色名（按 sort_order,id 升序；用于 /staff/permissions）。
      */
     @Select("SELECT r.name FROM sys_roles r "
