@@ -20,8 +20,11 @@ import java.io.IOException;
  * 将 {@link LoginUser} 写入 SecurityContext；缺失 / 无效 / 过期令牌一律保持匿名，
  * 由 Security 链对受保护路径返回 403（未认证）。
  * <p>
- * 不查询数据库：直接信任令牌声明（userId / userType），与 /api/v1/me 等服务层
- * 的库表校验配合，满足"校验签名/过期 → 写入 SecurityContext"的 P0 目标。
+ * 不查询数据库：直接信任令牌声明。支持两类主体：
+ * <ul>
+ *   <li>B端员工令牌（claim kind=staff，subject=sys_staff.id，携带 username/realName）；</li>
+ *   <li>C端用户令牌（kind=user 或缺省：subject=userId + userType）。</li>
+ * </ul>
  */
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -37,9 +40,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             try {
                 Claims claims = tokenProvider.parse(token);
                 if (JwtTokenProvider.TYPE_ACCESS.equals(claims.get(JwtTokenProvider.CLAIM_TOKEN_TYPE, String.class))) {
-                    Long userId = Long.valueOf(claims.getSubject());
-                    Integer userType = claims.get(JwtTokenProvider.CLAIM_USER_TYPE, Integer.class);
-                    LoginUser loginUser = LoginUser.of(userId, userType);
+                    Long id = Long.valueOf(claims.getSubject());
+                    LoginUser loginUser;
+                    if (JwtTokenProvider.KIND_STAFF.equals(claims.get(JwtTokenProvider.CLAIM_KIND, String.class))) {
+                        String username = claims.get(JwtTokenProvider.CLAIM_STAFF_USERNAME, String.class);
+                        String realName = claims.get(JwtTokenProvider.CLAIM_STAFF_REAL_NAME, String.class);
+                        loginUser = LoginUser.staff(id, username, realName);
+                    } else {
+                        Integer userType = claims.get(JwtTokenProvider.CLAIM_USER_TYPE, Integer.class);
+                        loginUser = LoginUser.of(id, userType);
+                    }
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(loginUser, null, loginUser.getAuthorities());
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));

@@ -55,8 +55,11 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // CORS 预检请求直接放行
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        // 白名单路径无需认证
+                        // 白名单路径无需认证（见 application.yml：文档/健康/员工登录刷新等）
                         .requestMatchers(securityProperties.getWhitelist().toArray(new String[0])).permitAll()
+                        // B端员工业务：roles/permissions/staff 均要求 B端员工令牌（ROLE_STAFF）；
+                        // 是否管理员（持 builtin 角色）在服务层判定（对齐 gf-eshop，不依赖令牌声明）
+                        .requestMatchers("/api/v1/roles/**", "/api/v1/permissions/**", "/api/v1/staff/**").hasRole("STAFF")
                         // 管理端路径：仅后台管理员（ROLE_ADMIN = user_type=1）
                         .requestMatchers(securityProperties.getAdminPaths().toArray(new String[0])).hasRole("ADMIN")
                         .anyRequest().authenticated())

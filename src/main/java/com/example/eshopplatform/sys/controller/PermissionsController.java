@@ -2,9 +2,11 @@ package com.example.eshopplatform.sys.controller;
 
 import com.example.eshopplatform.common.ApiResponse;
 import com.example.eshopplatform.common.PageResult;
+import com.example.eshopplatform.sys.dto.PermissionCheckReq;
 import com.example.eshopplatform.sys.dto.PermissionsCreateReq;
 import com.example.eshopplatform.sys.dto.PermissionsUpdateReq;
 import com.example.eshopplatform.sys.dto.PermissionsVO;
+import com.example.eshopplatform.sys.dto.RolePermissionUpdateReq;
 import com.example.eshopplatform.sys.service.PermissionsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -81,21 +83,22 @@ public class PermissionsController {
     }
 
     @Operation(operationId = "getPermissionsByRoleId", summary = "根据角色ID查询权限列表")
-    @GetMapping ("/roles/{roleId}")
+    @GetMapping("/roles/{roleId}")
     public ApiResponse<PermissionsVO[]> getPermissionsByRoleId(@PathVariable Long roleId) {
         return ApiResponse.ok(permissionsService.getPermissionsByRoleId(roleId));
     }
 
-    @Operation (operationId = "putPermissionsByRoleId", summary = "根据角色ID更新权限列表")
+    @Operation(operationId = "putPermissionsByRoleId", summary = "根据角色ID替换权限列表")
     @PutMapping("/roles/{roleId}")
-    public ApiResponse<Void> putPermissionsByRoleId(@PathVariable Long roleId, @RequestBody PermissionsVO[] permissions) {
-        permissionsService.putPermissionsByRoleId(roleId, permissions);
+    public ApiResponse<Void> putPermissionsByRoleId(@PathVariable Long roleId,
+                                                    @Valid @RequestBody RolePermissionUpdateReq req) {
+        permissionsService.putPermissionsByRoleId(roleId, req.getPermissionIds());
         return ApiResponse.ok(null);
     }
 
-    @Operation (operationId = "checkUserPermissions", summary = "校验当前用户权限")
+    @Operation(operationId = "checkUserPermissions", summary = "校验当前员工是否拥有指定权限")
     @PostMapping("/check")
-    public ApiResponse<Boolean> checkUserPermissions(@RequestBody PermissionsVO[] permissions) {
-        return ApiResponse.ok(permissionsService.checkUserPermissions(permissions));
+    public ApiResponse<Boolean> checkUserPermissions(@Valid @RequestBody PermissionCheckReq req) {
+        return ApiResponse.ok(permissionsService.checkUserPermissions(req.getPermission()));
     }
 }

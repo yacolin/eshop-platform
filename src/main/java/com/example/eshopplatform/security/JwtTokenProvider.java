@@ -33,10 +33,50 @@ public class JwtTokenProvider {
     /** 用户类型 claim 名（仅 access token 携带） */
     public static final String CLAIM_USER_TYPE = "userType";
 
+    /** 主体类别 claim 名：区分 B端员工(staff) 与 C端用户(user) 令牌（staff 见 sys_staff） */
+    public static final String CLAIM_KIND = "kind";
+    public static final String KIND_STAFF = "staff";
+    public static final String KIND_USER = "user";
+
+    /** B端员工令牌附加声明（与 gf-eshop StaffClaims 对齐） */
+    public static final String CLAIM_STAFF_USERNAME = "username";
+    public static final String CLAIM_STAFF_REAL_NAME = "realName";
+
     private final JwtProperties properties;
 
     private SecretKey key() {
         return Keys.hmacShaKeyFor(Decoders.BASE64.decode(properties.getSecret()));
+    }
+
+    /** 签发 B端员工 access token（subject=staffId，对齐 sys_staff.id） */
+    public String createStaffAccessToken(Long staffId, String username, String realName) {
+        Instant now = Instant.now();
+        return Jwts.builder()
+                .subject(String.valueOf(staffId))
+                .claim(CLAIM_TOKEN_TYPE, TYPE_ACCESS)
+                .claim(CLAIM_KIND, KIND_STAFF)
+                .claim(CLAIM_STAFF_USERNAME, username)
+                .claim(CLAIM_STAFF_REAL_NAME, realName)
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plusSeconds(properties.getAccessTokenExpireSeconds())))
+                .signWith(key())
+                .compact();
+    }
+
+    /** 签发 B端员工 refresh token（带 jti，Redis 白名单轮换用，见 StaffService） */
+    public String createStaffRefreshToken(Long staffId, String username, String realName) {
+        Instant now = Instant.now();
+        return Jwts.builder()
+                .subject(String.valueOf(staffId))
+                .id(UUID.randomUUID().toString())
+                .claim(CLAIM_TOKEN_TYPE, TYPE_REFRESH)
+                .claim(CLAIM_KIND, KIND_STAFF)
+                .claim(CLAIM_STAFF_USERNAME, username)
+                .claim(CLAIM_STAFF_REAL_NAME, realName)
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plusSeconds(properties.getRefreshTokenExpireSeconds())))
+                .signWith(key())
+                .compact();
     }
 
     /** 签发 access token（过期时间见 jwt.access-token-expire-seconds） */

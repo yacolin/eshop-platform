@@ -10,6 +10,7 @@ import com.example.eshopplatform.sys.dto.RolesVO;
 import com.example.eshopplatform.common.BizException;
 import com.example.eshopplatform.common.PageResult;
 import com.example.eshopplatform.common.TimeUtil;
+import com.example.eshopplatform.security.UserContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -24,6 +25,8 @@ import org.springframework.stereotype.Service;
  * created_at/updated_at/deleted_at 等自动列一律不进 apply。
  * 语义约定：update 为 DTO 覆盖（null 字段保留原值，非全量重置）；delete 默认逻辑删除
  * （表含 deleted_at 时实体自动标 @TableLogic，无该列的表才是物理删除）。
+ * 角色管理整体要求 B端管理员（当前员工持 builtin 角色，见 {@link #requireAdmin()}），
+ * 对齐 gf-eshop：Roles 控制器整体挂在 RequireAdmin 中间件下。
  * 以下为基础 CRUD，接入真实业务时按需加查询条件、校验与权限逻辑。</p>
  *
  * @since 2026-09-06
@@ -39,8 +42,9 @@ public class RolesService {
     private static final String ROLE_TYPE_BUILTIN = "builtin";
     private static final String ROLE_TYPE_CUSTOM = "custom";
 
-    /** 分页查询（第 page 页，每页 size 条） */
+    /** 分页查询（第 page 页，每页 size 条；需管理员） */
     public PageResult<RolesVO> page(int page, int size, String role_type, String name, String status) {
+        requireAdmin();
         Page<Roles> p = new Page<>(normalizePage(page), normalizeSize(size));
         LambdaQueryWrapper<Roles> wrapper = new LambdaQueryWrapper<Roles>()
                 .eq(role_type != null, Roles::getRoleType, role_type)
@@ -70,13 +74,14 @@ public class RolesService {
      * 判定一长就读不动时，抽成带名字的局部 boolean 或单独 if，不要硬塞链式。
      */
 
-    /** 按主键查询 */
+    /** 按主键查询（需管理员） */
     public RolesVO getById(Long id) {
+        requireAdmin();
         return toVO(require(id));
     }
 
     /**
-     * 新增。
+     * 新增（需管理员）。
      * 业务规则：
      * <ul>
      *   <li>roleType 只允许 DB 字符串枚举 builtin/custom；builtin（系统内置）角色仅能由种子/代码定义，
@@ -89,6 +94,7 @@ public class RolesService {
      * </ul>
      */
     public RolesVO create(RolesCreateReq req) {
+        requireAdmin();
         checkRoleType(req.getRoleType());
         if (ROLE_TYPE_BUILTIN.equals(req.getRoleType())) {
             throw BizException.forbidden("系统内置角色（builtin）不允许通过接口创建");
@@ -107,7 +113,7 @@ public class RolesService {
     }
 
     /**
-     * 按主键更新（DTO 覆盖语义）。
+     * 按主键更新（需管理员；DTO 覆盖语义）。
      * 注意：MyBatis-Plus 默认 NOT_NULL 策略——req 中为 null 的字段不会生成 SET，
      * 即"没传的字段保留原值"；若业务要求"传 null = 重置为默认值"，请在 apply 内
      * 对该字段显式兜底（如 entity.setStatus(req.getStatus() == null
@@ -117,6 +123,7 @@ public class RolesService {
      * sortOrder 等展示字段仍可编辑）。
      */
     public RolesVO update(Long id, RolesUpdateReq req) {
+        requireAdmin();
         Roles entity = require(id);
         checkRoleType(req.getRoleType());
         if (ROLE_TYPE_BUILTIN.equals(entity.getRoleType())
@@ -150,8 +157,17 @@ public class RolesService {
      * }</pre>
      */
     public void delete(Long id) {
+        requireAdmin();
         require(id);
         rolesMapper.deleteById(id);
+    }
+
+    /** 管理员判定（对齐 gf IsAdmin）：当前员工须为 staff 令牌且持 builtin 角色 */
+    private void requireAdmin() {
+        Long staffId = UserContext.getStaffId();
+        if (rolesMapper.countBuiltinRolesOfStaff(staffId) == 0) {
+            throw BizException.forbidden("无权限，需要管理员角色");
+        }
     }
 
     /**

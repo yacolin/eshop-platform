@@ -138,6 +138,7 @@ springdoc:
         - /api/v1/auth/refresh
         - /api/v1/roles/**
         - /api/v1/permissions/**
+        - /api/v1/staff/**
     - group: public
       display-name: 公开/小程序端
       paths-to-match:
@@ -165,6 +166,9 @@ eshop:
       - /api/v1/brands/**
       - /api/v1/categories/**
       - /api/v1/category-attributes/**
+      # B端员工认证：登录与刷新无需认证（其余 /api/v1/staff/** 需 ROLE_STAFF）
+      - /api/v1/staff/login
+      - /api/v1/staff/refresh
 
     # 管理端路径：仅后台管理员（/api/v1/auth/login 登录签发 token，user_type=1）可访问；
     # 暂无管理端接口，待对应业务域实现时按路径补入

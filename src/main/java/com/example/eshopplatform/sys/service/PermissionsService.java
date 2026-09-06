@@ -16,7 +16,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -34,15 +33,13 @@ import java.util.stream.Collectors;
  * 语义约定：update 为 DTO 覆盖（null 字段保留原值，非全量重置）；delete 默认逻辑删除，
  * 但角色-权限关联（sys_role_permissions）为替换式物理删除（唯一键下软删行会挡路）。</p>
  *
- * <p>权限编排三个业务接口（见 PermissionsController）：
+ * <p>权限与编排接口，行为对齐 gf-eshop：
  * <ul>
- *   <li>GET /permissions/roles/{roleId}：查角色已授予的权限；</li>
- *   <li>PUT /permissions/roles/{roleId}：整表替换角色的授权（先物理清空再批量写入）；</li>
- *   <li>POST /permissions/check：校验当前登录用户是否拥有全部给定权限。</li>
- * </ul>
- * 当前用户由 JWT principal 提供（sys_staff.id）；userType=1 视为超级管理员直接放行。
- * 注意：B端员工登录/发牌尚未实现，届时签发 access token 的 subject 需落 sys_staff.id
- * 本校验才会真实生效；在此之前 /check 只能被已有 C端/管理员令牌触发。</p>
+ *   <li>GET /permissions 列表 / GET /permissions/{id} 详情：任意 B端员工；</li>
+ *   <li>POST/PUT/DELETE /permissions、GET/PUT /permissions/roles/{roleId}：需管理员
+ *       （当前员工持 builtin 角色，见 {@link #requireAdmin()}）；</li>
+ *   <li>POST /permissions/check：按单权限标识（name）校验当前员工是否拥有，返回布尔。</li>
+ * </ul></p>
  *
  * @since 2026-09-06
  */
@@ -53,7 +50,7 @@ public class PermissionsService {
     /** 数据访问层 */
     private final PermissionsMapper permissionsMapper;
 
-    /** 角色（校验角色存在用） */
+    /** 角色（校验角色存在 / 管理员判定） */
     private final RolesMapper rolesMapper;
 
     /** 分页查询（第 page 页，每页 size 条） */
@@ -75,7 +72,7 @@ public class PermissionsService {
     }
 
     /**
-     * 新增。
+     * 新增（需管理员）。
      * 业务规则：
      * <ul>
      *   <li>name（权限标识，如 order:create）受 sys_permissions.uk_name 唯一约束，重复创建返回 409；</li>
@@ -83,6 +80,7 @@ public class PermissionsService {
      * </ul>
      */
     public PermissionsVO create(PermissionsCreateReq req) {
+        requireAdmin();
         checkNameUnique(req.getName(), null);
         Permissions entity = new Permissions();
         apply(entity, req);
@@ -94,13 +92,14 @@ public class PermissionsService {
     }
 
     /**
-     * 按主键更新（DTO 覆盖语义）。
+     * 按主键更新（需管理员；DTO 覆盖语义）。
      * 注意：MyBatis-Plus 默认 NOT_NULL 策略——req 中为 null 的字段不会生成 SET，
      * 即"没传的字段保留原值"；若业务要求"传 null = 重置为默认值"，请在 apply 内
      * 对该字段显式兜底（如 entity.setStatus(req.getStatus() == null
      * ? Boolean.TRUE : req.getStatus())）。
      */
     public PermissionsVO update(Long id, PermissionsUpdateReq req) {
+        requireAdmin();
         Permissions entity = require(id);
         checkNameUnique(req.getName(), id);
         apply(entity, req);
@@ -109,12 +108,13 @@ public class PermissionsService {
     }
 
     /**
-     * 按主键删除（默认逻辑删除：置 deleted_at，普通查询自动过滤）。
+     * 按主键删除（需管理员；默认逻辑删除：置 deleted_at，普通查询自动过滤）。
      * 引用保护：该权限仍被任意角色授权（sys_role_permissions 未软删行）时拒绝删除，
      * 需先经 PUT /permissions/roles/{roleId} 从角色授权列表移除，或直接把权限置为禁用
      * （status=false，不删除、不丢授权关系）。
      */
     public void delete(Long id) {
+        requireAdmin();
         require(id);
         if (permissionsMapper.countRoleRefs(id) > 0) {
             throw BizException.conflict("该权限仍被角色引用，请先从对应角色的权限列表中移除（PUT /permissions/roles/{roleId}）");
@@ -122,38 +122,30 @@ public class PermissionsService {
         permissionsMapper.deleteById(id);
     }
 
-    // ==================== 角色授权编排 ====================
+    // ==================== 角色授权编排（需管理员） ====================
 
     /**
-     * 查询角色已授予的权限列表（平台范围），按 sort_order,id 升序。
-     * 角色不存在返回 404。
+     * 查询角色已授予的权限列表（平台范围），按 sort_order,id 升序。角色不存在返回空列表。
      */
     public PermissionsVO[] getPermissionsByRoleId(Long roleId) {
-        requireRole(roleId);
+        requireAdmin();
         return permissionsMapper.selectByRoleId(roleId).stream()
                 .map(this::toVO)
                 .toArray(PermissionsVO[]::new);
     }
 
     /**
-     * 整表替换角色的授权：以 body 给定的权限 id 集合为角色的最终权限集。
+     * 整表替换角色的授权（需管理员）：以给定的权限 id 集合为角色的最终权限集。
      * 实现为事务内"物理清空 → 批量写入"，保证幂等与并发安全；
-     * 空数组 = 清空该角色全部授权。
-     * body 项取 PermissionsVO.id 定位权限；含不存在/已软删权限 id 时 400 并整体回滚。
+     * 空集合 = 清空该角色全部授权。
+     * 含不存在/已软删权限 id 时 400 并整体回滚。
      */
     @Transactional(rollbackFor = Exception.class)
-    public void putPermissionsByRoleId(Long roleId, PermissionsVO[] permissions) {
+    public void putPermissionsByRoleId(Long roleId, List<Long> permissionIds) {
+        requireAdmin();
         requireRole(roleId);
-        List<Long> ids = permissions == null ? List.of()
-                : Arrays.stream(permissions)
-                        .map(PermissionsVO::getId)
-                        .filter(Objects::nonNull)
-                        .distinct()
-                        .toList();
-        // 防呆：body 非空却解析不到任何权限 id（如只传了 name），视为请求错误而非"清空授权"
-        if (permissions != null && permissions.length > 0 && ids.isEmpty()) {
-            throw BizException.badRequest("body 需携带权限 id（PermissionsVO.id），未解析到任何权限ID");
-        }
+        List<Long> ids = permissionIds == null ? List.of()
+                : permissionIds.stream().filter(Objects::nonNull).distinct().toList();
         if (!ids.isEmpty()) {
             Set<Long> existIds = permissionsMapper.selectBatchIds(ids).stream()
                     .map(Permissions::getId)
@@ -169,40 +161,34 @@ public class PermissionsService {
         }
     }
 
+    // ==================== 权限校验 ====================
+
     /**
-     * 校验当前登录用户是否拥有 body 中全部权限（任一不满足即 false）。
-     * <ul>
-     *   <li>userType=1（超级管理员）直接放行返回 true；</li>
-     *   <li>否则按 principal.id = sys_staff.id 经 员工→角色→权限 解析启用权限集合；
-     *       body 项按 id 匹配，无 id 时退化为按 name（唯一权限标识）匹配；</li>
-     *   <li>空数组视为无要求，返回 true。</li>
-     * </ul>
+     * 校验当前 B端员工是否拥有指定权限标识（按 name 定位，对齐 gf HasPermission）。
+     * 任一环节缺失（非 staff 令牌 / 权限不存在或已禁用 / 未授权）均返回 false，不抛异常。
      */
-    public Boolean checkUserPermissions(PermissionsVO[] permissions) {
-        var user = UserContext.getLoginUser();
-        if (user.isAdmin()) {
-            return true;
+    public Boolean checkUserPermissions(String permissionName) {
+        if (permissionName == null || permissionName.isBlank()) {
+            return false;
         }
-        if (permissions == null || permissions.length == 0) {
-            return true;
+        Long staffId;
+        try {
+            staffId = UserContext.getStaffId();
+        } catch (BizException e) {
+            return false;
         }
-        List<Permissions> granted = permissionsMapper.selectEnabledByStaffId(user.getId());
-        Set<Long> grantedIds = granted.stream().map(Permissions::getId).collect(Collectors.toSet());
-        Set<String> grantedNames = granted.stream()
-                .map(Permissions::getName)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        for (PermissionsVO vo : permissions) {
-            boolean hit = vo.getId() != null && grantedIds.contains(vo.getId())
-                    || vo.getName() != null && grantedNames.contains(vo.getName());
-            if (!hit) {
-                return false;
-            }
-        }
-        return true;
+        return permissionsMapper.countStaffHasPermissionByName(staffId, permissionName) > 0;
     }
 
     // ==================== 私有工具 ====================
+
+    /** 管理员判定（对齐 gf IsAdmin）：当前员工须为 staff 令牌且持 builtin 角色 */
+    private void requireAdmin() {
+        Long staffId = UserContext.getStaffId();
+        if (rolesMapper.countBuiltinRolesOfStaff(staffId) == 0) {
+            throw BizException.forbidden("无权限，需要管理员角色");
+        }
+    }
 
     /** 权限标识唯一性校验（sys_permissions.uk_name），更新时排除自身 */
     private void checkNameUnique(String name, Long excludeId) {

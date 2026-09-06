@@ -57,16 +57,30 @@ public interface PermissionsMapper extends BaseMapper<Permissions> {
                               @Param("permissionIds") Collection<Long> permissionIds);
 
     /**
-     * 员工经其全部角色能触达的启用权限（去重；用于当前用户权限校验 POST /permissions/check）。
+     * 员工经其全部角色能触达的权限标识 name 集合（去重，含禁用权限；对齐 gf GetPermissions）。
+     * 用于 GET /api/v1/staff/permissions。
      */
-    @Select("SELECT DISTINCT p.id, p.name FROM sys_permissions p "
+    @Select("SELECT DISTINCT p.name FROM sys_permissions p "
             + "JOIN sys_role_permissions rp ON rp.permission_id = p.id "
             + "JOIN sys_staff_roles sr ON sr.role_id = rp.role_id "
             + "WHERE sr.staff_id = #{staffId} "
             + "AND rp.scope_type = 'platform' AND rp.scope_id = 0 "
-            + "AND sr.deleted_at IS NULL AND rp.deleted_at IS NULL AND p.deleted_at IS NULL "
-            + "AND p.status = 1")
-    List<Permissions> selectEnabledByStaffId(@Param("staffId") Long staffId);
+            + "AND sr.deleted_at IS NULL AND rp.deleted_at IS NULL AND p.deleted_at IS NULL")
+    List<String> selectPermissionNamesByStaffId(@Param("staffId") Long staffId);
+
+    /**
+     * 员工是否拥有指定权限标识（按 name 定位，对齐 gf HasPermission）——
+     * POST /permissions/check 用。权限本身被禁用（status=0）时同样视为无权限。
+     */
+    @Select("SELECT COUNT(*) FROM sys_permissions p "
+            + "JOIN sys_role_permissions rp ON rp.permission_id = p.id "
+            + "JOIN sys_staff_roles sr ON sr.role_id = rp.role_id "
+            + "WHERE p.name = #{permissionName} AND sr.staff_id = #{staffId} "
+            + "AND p.status = 1 "
+            + "AND p.deleted_at IS NULL AND rp.deleted_at IS NULL AND sr.deleted_at IS NULL "
+            + "AND rp.scope_type = 'platform' AND rp.scope_id = 0")
+    long countStaffHasPermissionByName(@Param("staffId") Long staffId,
+                                       @Param("permissionName") String permissionName);
 
     /**
      * 权限被未软删的角色授权引用的条数（删除保护用）。
