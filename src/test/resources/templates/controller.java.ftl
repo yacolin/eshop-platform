@@ -26,35 +26,36 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-<#-- 生成规则：表名去掉域前缀、下划线转短横线（保留复数）
-     sp_brands -> /api/v1/brands；sp_product_attributes -> /api/v1/product-attributes -->
+<#-- 生成规则：表名去掉域前缀、下划线转短横线（保留复数），再拼按端前缀 -->
+<#-- 按端拆分：apiBase=/api/v1/admin|public，layoutSuffix=Admin|Public（@Tag/operationId 带端后缀） -->
+<#-- 例：sp_brands -> /api/v1/admin/brands（管理端）/ /api/v1/public/brands（小程序端） -->
 <#assign pIdx = table.name?index_of("_")>
 <#assign restPath = (pIdx >= 0)?then(table.name?substring(pIdx + 1), table.name)?replace("_", "-")>
 
 /**
  * <p>
- * ${escJd(table.comment!)}基础 CRUD 接口（模板生成）
+ * ${escJd(table.comment!)}基础 CRUD 接口（模板生成·${layoutLabel}）
  * </p>
  *
- * <p>默认路径按“表名去前缀 + 短横线”生成（如 sp_brands → /api/v1/brands）。
+ * <p>路径按「表名去前缀 + 短横线」拼按端前缀生成（${apiBase}/${restPath}）；
  * 新增/更新请求体分别用 ${table.entityName}CreateReq / ${table.entityName}UpdateReq，
  * 写接口带 {@code @Valid} 触发 DTO 内校验注解。接入真实接口前请调整：如遇子资源/
- * 嵌套接口改更精确的路径、Req/VO 按接口用例裁剪校验、接口按端分组补 springdoc
- * @Tag，并把真实路径补入 application.yml 的 whitelist/admin-paths。</p>
+ * 嵌套接口改更精确的路径、Req/VO 按接口用例裁剪校验，并把真实路径补入
+ * application.yml 的 whitelist/admin-paths（管理端还需启用 springdoc 分组）。</p>
  *
 <#if author?? && author != ""> * @author ${author}
 </#if> * @since ${date}
  */
-@Tag(name = "${table.entityName}Crud", description = "${escStr(table.comment!)}基础 CRUD")
+@Tag(name = "${table.entityName}${layoutSuffix}", description = "${escStr(table.comment!)}${layoutLabel} CRUD")
 @RestController
-@RequestMapping("/api/v1/${restPath}")
+@RequestMapping("${apiBase}/${restPath}")
 @RequiredArgsConstructor
 public class ${table.controllerName} {
 
     private final ${table.serviceName} ${table.serviceName?uncap_first};
 
-    <#-- operationId 命名：list/get/create/update/delete + entityName（全局唯一，供前端按 operationId 取用） -->
-    @Operation(operationId = "list${table.entityName}", summary = "分页查询${escStr(table.comment!)}")
+    <#-- operationId 命名：list/get/create/update/delete + entityName + 端后缀（全局唯一，供前端按 operationId 取用） -->
+    @Operation(operationId = "list${table.entityName}${layoutSuffix}", summary = "分页查询${escStr(table.comment!)}")
     @GetMapping
     public ApiResponse<PageResult<${table.entityName}VO>> page(
             @RequestParam(defaultValue = "1") int page,
@@ -62,26 +63,26 @@ public class ${table.controllerName} {
         return ApiResponse.ok(${table.serviceName?uncap_first}.page(page, size));
     }
 
-    @Operation(operationId = "get${table.entityName}", summary = "查询${escStr(table.comment!)}详情")
+    @Operation(operationId = "get${table.entityName}${layoutSuffix}", summary = "查询${escStr(table.comment!)}详情")
     @GetMapping("/{id}")
     public ApiResponse<${table.entityName}VO> get(@PathVariable Long id) {
         return ApiResponse.ok(${table.serviceName?uncap_first}.getById(id));
     }
 
-    @Operation(operationId = "create${table.entityName}", summary = "新增${escStr(table.comment!)}")
+    @Operation(operationId = "create${table.entityName}${layoutSuffix}", summary = "新增${escStr(table.comment!)}")
     @PostMapping
     public ApiResponse<${table.entityName}VO> create(@Valid @RequestBody ${table.entityName}CreateReq req) {
         return ApiResponse.ok(${table.serviceName?uncap_first}.create(req));
     }
 
-    @Operation(operationId = "update${table.entityName}", summary = "更新${escStr(table.comment!)}")
+    @Operation(operationId = "update${table.entityName}${layoutSuffix}", summary = "更新${escStr(table.comment!)}")
     @PutMapping("/{id}")
     public ApiResponse<${table.entityName}VO> update(@PathVariable Long id,
                                                      @Valid @RequestBody ${table.entityName}UpdateReq req) {
         return ApiResponse.ok(${table.serviceName?uncap_first}.update(id, req));
     }
 
-    @Operation(operationId = "delete${table.entityName}", summary = "删除${escStr(table.comment!)}")
+    @Operation(operationId = "delete${table.entityName}${layoutSuffix}", summary = "删除${escStr(table.comment!)}")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         ${table.serviceName?uncap_first}.delete(id);
