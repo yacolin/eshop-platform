@@ -23,6 +23,8 @@ GEN_CP := target/gen-classpath.txt
 #   make gen DOMAIN=sp                          # 只生成 sp_ 域全部表（表多时一把梭）
 #   make gen GEN_TABLES="usr_users usr_infos"   # 只生成指定表（表少时用）
 #   make gen GEN_OPTS="-Ddb.password=xxx -Dgen.author=me"  # 覆盖数据库连接/作者
+#   make gen GEN_OPTS="-Dgen.controllerLayout=both"        # 控制器按端拆分：admin(缺省)/public/both
+#                                                          # （逐表覆盖见 CodeGenerator.TABLE_LAYOUT）
 
 help: ## 显示所有命令
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-12s %s\n", $$1, $$2}'

@@ -87,7 +87,9 @@ src/main/java/com/example/eshopplatform/
 ├── security/                       # JWT 认证过滤器链
 ├── health/                         # /api/v1/health 健康检查
 └── <域>/                           # 业务域（由 make gen 生成，见下）
-    ├── entity/ mapper/ service/ controller/ dto/
+    └── <业务>/                     # 域内业务子包（如表 sp_brands → sp.brand）
+        ├── entity/ mapper/ service/ dto/
+        └── controller/             # 控制器平铺；端由类名后缀区分（XxxAdmin/XxxPublicController）
 src/test/.../tool/CodeGenerator.java        # 代码生成器（test 作用域，不进运行包）
 src/test/resources/templates/               # 自定义生成模板（service/controller/vo/req）
 ```
@@ -101,28 +103,36 @@ make gen                                        # 生成全部业务表（按表
 make gen DOMAIN=sp                              # 只生成 sp_ 域全部表（整域一把梭）
 make gen GEN_TABLES="sp_brands usr_users"       # 只生成指定表（表少时用）
 make gen GEN_OPTS="-Ddb.password=xxx -Dgen.author=me"   # 覆盖连接/作者
+make gen GEN_OPTS="-Dgen.controllerLayout=both" # 控制器按端拆分：admin(缺省)/public/both
 ```
 
-**每表产出 7 个文件**（表前缀 → 业务域包，如 `sp_brands` → `com.example.eshopplatform.sp`）：
+**每表产出 7 个文件**（登记为 `both` 时多一个 Public 控制器，共 8 个；表前缀 → 业务域包 → 业务子包，
+如 `sp_brands` → `com.example.eshopplatform.sp.brand`；控制器平铺在 `controller` 内、以类名 `Admin`/`Public` 后缀区分端）：
 
 ```
-entity/<实体>.java           # @TableName + Lombok + @TableField
-mapper/<实体>Mapper.java     # @Mapper（无 @MapperScan，靠注解注册）
-service/<实体>Service.java   # 具体类（无接口、无 *ServiceImpl）
-controller/<实体>Controller.java  # @RestController + 基础 CRUD 端点
-dto/<实体>VO.java            # 响应对象（deleted_at 不暴露；时间列 Long epoch 毫秒）
-dto/<实体>CreateReq.java     # 新增入参（不含主键与自动列；DB 必填列带空校验，String 带 DB 长度上限校验）
-dto/<实体>UpdateReq.java     # 更新入参（同 CreateReq 的自动列/校验规则）
+<域>/<业务>/entity/<实体>.java            # @TableName + Lombok + @TableField
+<域>/<业务>/mapper/<实体>Mapper.java      # @Mapper（无 @MapperScan，靠注解注册）
+<域>/<业务>/service/<实体>Service.java    # 具体类（无接口、无 *ServiceImpl）
+<域>/<业务>/controller/<实体>AdminController.java    # 管理端 CRUD（/api/v1/admin/...）
+<域>/<业务>/controller/<实体>PublicController.java   # 小程序端 CRUD（both 时才生成）
+<域>/<业务>/dto/<实体>VO.java             # 响应对象（deleted_at 不暴露；时间列 Long epoch 毫秒）
+<域>/<业务>/dto/<实体>CreateReq.java      # 新增入参（不含主键与自动列；DB 必填列带空校验，String 带 DB 长度上限校验）
+<域>/<业务>/dto/<实体>UpdateReq.java      # 更新入参（同 CreateReq 的自动列/校验规则）
 ```
 
 **工程约定**：
 
 - Service 为**具体类**（`@Service` + `@RequiredArgsConstructor` + 注入 Mapper），不生成接口与 `*ServiceImpl`
 - 类名**去掉域前缀**（域由包名表达）：`sp_brands` → 实体 `Brands`（`@TableName` 仍为 `sp_brands`），
-  mapper/service/controller/dto 均无前缀（`BrandsMapper`/`BrandsService`/`BrandsController`/
+  mapper/service/controller/dto 均无前缀（`BrandsMapper`/`BrandsService`/`BrandsAdminController`/
   `BrandsVO`/`BrandsCreateReq`/`BrandsUpdateReq`）
-- Controller 为 `@RestController`，路径规则 = **表名去域前缀 + 下划线转短横线（保留复数）**，
-  如 `sp_brands` → `/api/v1/brands`、`sp_product_attributes` → `/api/v1/product-attributes`；
+- **控制器按端拆分**：默认生成管理端 `controller.XxxAdminController`（`/api/v1/admin/<resource>`）；
+  需要在已有 `make gen` 表上生成小程序端时，用 `-Dgen.controllerLayout=both` 或在该表登记
+  `CodeGenerator.TABLE_LAYOUT` → `both`，会再生成 `controller.XxxPublicController`
+  （`/api/v1/public/<resource>`）。两个控制器**平铺在同一个 `controller` 包内**，端由类名后缀区分；
+  `@Tag` 名与 `operationId` 同样带 `Admin`/`Public` 后缀，保证同表双端时全局唯一
+- Controller 为 `@RestController`，路径规则 = **按端前缀 + 表名去域前缀 + 下划线转短横线（保留复数）**，
+  如 `sp_brands` → `/api/v1/admin/brands`、`sp_product_attributes` → `/api/v1/admin/product-attributes`；
   端点 `GET/POST/PUT/DELETE` 统一返回 `ApiResponse` / `PageResult`，带 `@Operation`；
   写接口请求体带 `@Valid`（触发 DTO 校验注解）
 - CRUD 出入参走 DTO（CreateReq/UpdateReq/VO），`toVO` / `apply` 字段映射由模板自动生成；
@@ -242,4 +252,4 @@ mybatis-plus:
 | mapper.xml | 不生成（走 Wrapper/注解）；`mapper-locations` 已预留，需要时自建 `resources/mapper` |
 | springdoc | 暂无业务接口，仅基础配置；按端分组随业务接口补齐 |
 | Security | whitelist / admin-paths 当前仅基础设施路径（`/error`、`/api/v1/health`、文档路径）；业务路径随各域提交补入 |
-| 代码生成 | `make gen`（FastAutoGenerator 3.5.17），每表 6 文件（entity/mapper/service/controller/dto×2） |
+| 代码生成 | `make gen`（FastAutoGenerator 3.5.17），每表 7 文件（entity/mapper/service/dto×3 + controller）；控制器平铺于 `controller`、类名带 `Admin`/`Public` 后缀（`-Dgen.controllerLayout=admin\|public\|both`） |
