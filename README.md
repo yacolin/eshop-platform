@@ -103,18 +103,19 @@ make gen                                        # 生成全部业务表（按表
 make gen DOMAIN=sp                              # 只生成 sp_ 域全部表（整域一把梭）
 make gen GEN_TABLES="sp_brands usr_users"       # 只生成指定表（表少时用）
 make gen GEN_OPTS="-Ddb.password=xxx -Dgen.author=me"   # 覆盖连接/作者
-make gen GEN_OPTS="-Dgen.controllerLayout=both" # 控制器按端拆分：admin(缺省)/public/both
+make gen GEN_OPTS="-Dgen.controllerLayout=admin" # 控制器按端拆分：both(缺省)/admin/public
 ```
 
-**每表产出 7 个文件**（登记为 `both` 时多一个 Public 控制器，共 8 个；表前缀 → 业务域包 → 业务子包，
-如 `sp_brands` → `com.example.eshopplatform.sp.brand`；控制器平铺在 `controller` 内、以类名 `Admin`/`Public` 后缀区分端）：
+**每表产出 8 个文件**（默认按端生成 Admin + Public 两套控制器，不需要的一侧手工删除即可；
+表前缀 → 业务域包 → 业务子包，如 `sp_brands` → `com.example.eshopplatform.sp.brand`；
+控制器平铺在 `controller` 内、以类名 `Admin`/`Public` 后缀区分端）：
 
 ```
 <域>/<业务>/entity/<实体>.java            # @TableName + Lombok + @TableField
 <域>/<业务>/mapper/<实体>Mapper.java      # @Mapper（无 @MapperScan，靠注解注册）
 <域>/<业务>/service/<实体>Service.java    # 具体类（无接口、无 *ServiceImpl）
-<域>/<业务>/controller/<实体>AdminController.java    # 管理端 CRUD（/api/v1/admin/...）
-<域>/<业务>/controller/<实体>PublicController.java   # 小程序端 CRUD（both 时才生成）
+<域>/<业务>/controller/<实体>AdminController.java    # 管理端 CRUD（/api/v1/admin/...，默认生成）
+<域>/<业务>/controller/<实体>PublicController.java   # 小程序端 CRUD（/api/v1/public/...，默认生成，不用可删）
 <域>/<业务>/dto/<实体>VO.java             # 响应对象（deleted_at 不暴露；时间列 Long epoch 毫秒）
 <域>/<业务>/dto/<实体>CreateReq.java      # 新增入参（不含主键与自动列；DB 必填列带空校验，String 带 DB 长度上限校验）
 <域>/<业务>/dto/<实体>UpdateReq.java      # 更新入参（同 CreateReq 的自动列/校验规则）
@@ -126,10 +127,13 @@ make gen GEN_OPTS="-Dgen.controllerLayout=both" # 控制器按端拆分：admin(
 - 类名**去掉域前缀**（域由包名表达）：`sp_brands` → 实体 `Brands`（`@TableName` 仍为 `sp_brands`），
   mapper/service/controller/dto 均无前缀（`BrandsMapper`/`BrandsService`/`BrandsAdminController`/
   `BrandsVO`/`BrandsCreateReq`/`BrandsUpdateReq`）
-- **控制器按端拆分**：默认生成管理端 `controller.XxxAdminController`（`/api/v1/admin/<resource>`）；
-  需要在已有 `make gen` 表上生成小程序端时，用 `-Dgen.controllerLayout=both` 或在该表登记
-  `CodeGenerator.TABLE_LAYOUT` → `both`，会再生成 `controller.XxxPublicController`
-  （`/api/v1/public/<resource>`）。两个控制器**平铺在同一个 `controller` 包内**，端由类名后缀区分；
+- **控制器按端拆分**：**默认每表生成两套**（`both`）——
+  管理端 `controller.XxxAdminController`（`/api/v1/admin/<resource>`）与
+  小程序端 `controller.XxxPublicController`（`/api/v1/public/<resource>`）；
+  多出来的一侧**直接删文件即可**（重复生成不会把它加回来，也不会覆盖已改文件）。
+  想只生成一侧：`-Dgen.controllerLayout=admin|public`，或在
+  `CodeGenerator.TABLE_LAYOUT` 登记该表（如内部表 `sys_operation_logs → admin`）。
+  两个控制器**平铺在同一个 `controller` 包内**，端由类名后缀区分；
   `@Tag` 名与 `operationId` 同样带 `Admin`/`Public` 后缀，保证同表双端时全局唯一
 - Controller 为 `@RestController`，路径规则 = **按端前缀 + 表名去域前缀 + 下划线转短横线（保留复数）**，
   如 `sp_brands` → `/api/v1/admin/brands`、`sp_product_attributes` → `/api/v1/admin/product-attributes`；
@@ -252,4 +256,4 @@ mybatis-plus:
 | mapper.xml | 不生成（走 Wrapper/注解）；`mapper-locations` 已预留，需要时自建 `resources/mapper` |
 | springdoc | 暂无业务接口，仅基础配置；按端分组随业务接口补齐 |
 | Security | whitelist / admin-paths 当前仅基础设施路径（`/error`、`/api/v1/health`、文档路径）；业务路径随各域提交补入 |
-| 代码生成 | `make gen`（FastAutoGenerator 3.5.17），每表 7 文件（entity/mapper/service/dto×3 + controller）；控制器平铺于 `controller`、类名带 `Admin`/`Public` 后缀（`-Dgen.controllerLayout=admin\|public\|both`） |
+| 代码生成 | `make gen`（FastAutoGenerator 3.5.17），每表 8 文件（entity/mapper/service/dto×3 + Admin/Public 两个 controller，默认 `both`，不用的一侧可删）；控制器平铺于 `controller`、类名带 `Admin`/`Public` 后缀（`-Dgen.controllerLayout=admin\|public\|both`） |

@@ -44,12 +44,14 @@ import java.util.Set;
  * 跨业务共用的守卫等放 {@code ...sys.common}。
  * 无域前缀或无法推导的表才按"域层平铺"生成。
  *
- * <p><b>控制器按端拆分</b>（Admin / Public）：生成的 Controller 统一落
- * {@code <域>.<业务>.controller} 子包（不按端再分子包），用类名
- * {@code <实体><Admin|Public>Controller} 区分端（@Tag 名与 operationId 同样带端后缀），
- * 路由前缀 {@code /api/v1/admin|public}，{@code operationId} 带端后缀（同表双端生成时
- * 仍全局唯一）；全局默认管理端，双端表在 {@link #TABLE_LAYOUT} 登记为 {@code both}，
- * 也可用 {@code -Dgen.controllerLayout=admin|public|both} 覆盖全局默认。
+ * <p><b>控制器按端拆分</b>（Admin / Public）：每张表<b>默认生成两套</b> Controller
+ * （{@code both}）——管理端 {@code <实体>AdminController}
+ * （{@code /api/v1/admin/<resource>}）与小程序端 {@code <实体>PublicController}
+ * （{@code /api/v1/public/<resource>}），两者统一落 {@code <域>.<业务>.controller} 包
+ * （不按端再分子包），{@code @Tag} 名与 {@code operationId} 均带 {@code Admin}/{@code Public}
+ * 后缀（同表双端时 operationId 仍全局唯一）；不需要的一侧手工删除即可。
+ * 全局默认可用 {@code -Dgen.controllerLayout=admin|public|both} 覆盖，逐表覆盖见
+ * {@link #TABLE_LAYOUT}。
  *
  * <p><b>重复运行安全</b>：生成器默认不覆盖已存在文件（未开启 fileOverride），
  * 只新建缺失文件，已写好的业务改动不会被冲掉；模板/命名规则升级需先 git 提交、
@@ -63,7 +65,7 @@ import java.util.Set;
  *   #    不带参数 = 生成全部表（自动按表前缀分域）；
  *   #    参数支持：域前缀（sp = 生成 sp_* 整域）/ 具体表名（usr_users usr_addresses），可混用
  *   #    数据库连接默认同 application.yml 开发配置，可用 -Ddb.url/-Ddb.username/-Ddb.password 覆盖
- *   #    按端布局：-Dgen.controllerLayout=admin|public|both（缺省 admin；逐表覆盖见 TABLE_LAYOUT）
+ *   #    按端布局：-Dgen.controllerLayout=admin|public|both（缺省 both；逐表覆盖见 TABLE_LAYOUT）
  * </pre>
  */
 public class CodeGenerator {
@@ -134,26 +136,29 @@ public class CodeGenerator {
     /**
      * 控制器按端拆分（Admin / Public）：
      * <ul>
-     *   <li><b>全局默认</b>：{@code -Dgen.controllerLayout=admin|public|both}，缺省 {@code admin}。
-     *       生成的 Controller 统一落在 {@code <域>.<业务>.controller} 子包（不按端再分子包），
+     *   <li><b>全局默认 {@code both}</b>：{@code -Dgen.controllerLayout=admin|public|both} 可改。
+     *       默认给每张表生成管理端 + 小程序端两套 Controller——多出来的一侧按需手工删除，
+     *       比事后补建省事（删除后重复生成也不会被恢复：生成器不覆盖已存在文件，但也不重建已删除文件）。</li>
+     *   <li>生成的 Controller 统一落在 {@code <域>.<业务>.controller} 子包（不按端再分子包），
      *       类名 {@code <实体><Admin|Public>Controller} 区分端；路由前缀 {@code /api/v1/<端>}，
      *       {@code operationId} 带端后缀（admin/public 同表生成两套时仍全局唯一）；</li>
-     *   <li>{@code both}：同一张表生成管理端与小程序端两套 Controller（拆成两组各跑一遍，
-     *       第二遍只补缺失文件，已存在的 entity/mapper/service/dto 不会被覆盖）；</li>
-     *   <li><b>逐表覆盖</b>：在 {@link #TABLE_LAYOUT} 登记「表名 → 布局」，未登记的表用全局默认。</li>
+     *   <li>{@code both} 的实现：同一张表拆进 admin/public 两组各跑一遍，第二遍只补缺失文件，
+     *       已存在的 entity/mapper/service/dto 不会被覆盖（日志里的 "already exists" WARN 属正常）；</li>
+     *   <li><b>逐表覆盖</b>：在 {@link #TABLE_LAYOUT} 登记「表名 → 布局」，未登记的表用全局默认；
+     *       内部表只想留管理端时登记 {@code admin} 即可（如 {@code sys_*}）。</li>
      * </ul>
      */
     private static final String DEFAULT_CONTROLLER_LAYOUT =
-            System.getProperty("gen.controllerLayout", "admin");
+            System.getProperty("gen.controllerLayout", "both");
 
     /** 合法的按端布局取值 */
     private static final Set<String> VALID_LAYOUTS = Set.of("admin", "public", "both");
 
     /**
-     * 表 → 按端布局覆盖（admin / public / both）：需要小程序端接口的表在此登记，
-     * 未登记的表用 {@link #DEFAULT_CONTROLLER_LAYOUT}。
-     * 当前无登记（全部按管理端生成）；业务确认某表要对外开放时，在此加
-     * {@code "表名", "both"}（或 {@code "public"}）。
+     * 表 → 按端布局覆盖（admin / public / both）：默认双端，需要"只生成一侧"的表在此登记，
+     * 未登记的表用 {@link #DEFAULT_CONTROLLER_LAYOUT}（both）。
+     * 例：{@code Map.of("sys_operation_logs", "admin", "sys_login_histories", "admin")}
+     * 表示这两张内部表只生成管理端。
      */
     private static final Map<String, String> TABLE_LAYOUT = Map.of();
 
