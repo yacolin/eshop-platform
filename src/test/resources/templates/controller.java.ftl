@@ -8,6 +8,7 @@ package ${package.Controller};
 
 import com.example.eshopplatform.common.ApiResponse;
 import com.example.eshopplatform.common.PageResult;
+import com.example.eshopplatform.common.web.${layoutSuffix}Controller;
 import ${dtoPkg}.${table.entityName}CreateReq;
 import ${dtoPkg}.${table.entityName}UpdateReq;
 import ${dtoPkg}.${table.entityName}VO;
@@ -26,9 +27,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-<#-- 生成规则：表名去掉域前缀、下划线转短横线（保留复数），再拼按端前缀 -->
-<#-- 按端拆分：apiBase=/api/v1/admin|public，layoutSuffix=Admin|Public（@Tag/operationId 带端后缀） -->
-<#-- 例：sp_brands -> /api/v1/admin/brands（管理端）/ /api/v1/public/brands（小程序端） -->
+<#-- 生成规则：表名去掉域前缀、下划线转短横线（保留复数），得到业务路径 -->
+<#-- 按端拆分：layoutSuffix=Admin|Public（@Tag/operationId 带端后缀），端前缀由 WebConfig 统一加 -->
+<#-- 例：sp_brands -> 类上 @RequestMapping("/brands")，运行时 /api/v1/admin/brands（管理端）
+     / /api/v1/public/brands（小程序端）——前缀由 @AdminController/@PublicController 标记收口 -->
 <#assign pIdx = table.name?index_of("_")>
 <#assign restPath = (pIdx >= 0)?then(table.name?substring(pIdx + 1), table.name)?replace("_", "-")>
 
@@ -37,7 +39,9 @@ import org.springframework.web.bind.annotation.RestController;
  * ${escJd(table.comment!)}基础 CRUD 接口（模板生成·${layoutLabel}）
  * </p>
  *
- * <p>路径按「表名去前缀 + 短横线」拼按端前缀生成（${apiBase}/${restPath}）；
+ * <p>类上只写业务路径 {@code /${restPath}}，端前缀 {@code /api/v1/<端>} 由 {@code WebConfig}
+ * 按 {@code @${layoutSuffix}Controller} 标记统一添加（运行时路径 {@code ${apiBase}/${restPath}}，
+ * 与 Security/springdoc 的完整路径匹配一致）；
  * 新增/更新请求体分别用 ${table.entityName}CreateReq / ${table.entityName}UpdateReq，
  * 写接口带 {@code @Valid} 触发 DTO 内校验注解。接入真实接口前请调整：如遇子资源/
  * 嵌套接口改更精确的路径、Req/VO 按接口用例裁剪校验，并把真实路径补入
@@ -47,8 +51,9 @@ import org.springframework.web.bind.annotation.RestController;
 </#if> * @since ${date}
  */
 @Tag(name = "${table.entityName}${layoutSuffix}", description = "${escStr(table.comment!)}${layoutLabel} CRUD")
+@${layoutSuffix}Controller
 @RestController
-@RequestMapping("${apiBase}/${restPath}")
+@RequestMapping("/${restPath}")
 @RequiredArgsConstructor
 public class ${table.controllerName} {
 
