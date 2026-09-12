@@ -114,8 +114,8 @@ make gen GEN_OPTS="-Dgen.controllerLayout=admin" # 控制器按端拆分：both(
 <域>/<业务>/entity/<实体>.java            # @TableName + Lombok + @TableField
 <域>/<业务>/mapper/<实体>Mapper.java      # @Mapper（无 @MapperScan，靠注解注册）
 <域>/<业务>/service/<实体>Service.java    # 具体类（无接口、无 *ServiceImpl）
-<域>/<业务>/controller/<实体>AdminController.java    # 管理端 CRUD（/api/v1/admin/...，默认生成）
-<域>/<业务>/controller/<实体>PublicController.java   # 小程序端 CRUD（/api/v1/public/...，默认生成，不用可删）
+<域>/<业务>/controller/<实体>AdminController.java    # 管理端 CRUD（类上只写业务路径，运行时 /api/v1/admin/...）
+<域>/<业务>/controller/<实体>PublicController.java   # 小程序端 CRUD（同理，运行时 /api/v1/public/...；不用可删）
 <域>/<业务>/dto/<实体>VO.java             # 响应对象（deleted_at 不暴露；时间列 Long epoch 毫秒）
 <域>/<业务>/dto/<实体>CreateReq.java      # 新增入参（不含主键与自动列；DB 必填列带空校验，String 带 DB 长度上限校验）
 <域>/<业务>/dto/<实体>UpdateReq.java      # 更新入参（同 CreateReq 的自动列/校验规则）
@@ -128,15 +128,20 @@ make gen GEN_OPTS="-Dgen.controllerLayout=admin" # 控制器按端拆分：both(
   mapper/service/controller/dto 均无前缀（`BrandsMapper`/`BrandsService`/`BrandsAdminController`/
   `BrandsVO`/`BrandsCreateReq`/`BrandsUpdateReq`）
 - **控制器按端拆分**：**默认每表生成两套**（`both`）——
-  管理端 `controller.XxxAdminController`（`/api/v1/admin/<resource>`）与
-  小程序端 `controller.XxxPublicController`（`/api/v1/public/<resource>`）；
+  管理端 `controller.XxxAdminController`（类上只写业务路径，运行时 `/api/v1/admin/<resource>`）与
+  小程序端 `controller.XxxPublicController`（同理 `/api/v1/public/<resource>`）；
   多出来的一侧**直接删文件即可**（重复生成不会把它加回来，也不会覆盖已改文件）。
   想只生成一侧：`-Dgen.controllerLayout=admin|public`，或在
   `CodeGenerator.TABLE_LAYOUT` 登记该表（如内部表 `sys_operation_logs → admin`）。
   两个控制器**平铺在同一个 `controller` 包内**，端由类名后缀区分；
   `@Tag` 名与 `operationId` 同样带 `Admin`/`Public` 后缀，保证同表双端时全局唯一
-- Controller 为 `@RestController`，路径规则 = **按端前缀 + 表名去域前缀 + 下划线转短横线（保留复数）**，
-  如 `sp_brands` → `/api/v1/admin/brands`、`sp_product_attributes` → `/api/v1/admin/product-attributes`；
+- Controller 为 `@RestController`，**类上只写业务路径**（表名去域前缀 + 下划线转短横线，保留复数），
+  如 `sp_brands` → `@RequestMapping("/brands")`；**端前缀 `/api/v1/admin`、`/api/v1/public` 由
+  `WebConfig#configurePathMatch` 按标记注解统一添加**——管理端标 `@AdminController`、公开端标
+  `@PublicController`（`common/web`），运行时最终路径仍是 `/api/v1/admin/brands`。Spring 的
+  `addPathPrefix` 只取**第一个命中**的前缀（不叠加），故两端各用一个完整前缀；Security 的
+  `admin-paths`/`whitelist` 与 springdoc 的 `paths-to-match` 仍按完整路径匹配，springdoc 3.1
+  能正确反映该前缀（分组文档路径完整）；未标注的控制器（如健康检查 `/api/v1/health`）不受影响；
   端点 `GET/POST/PUT/DELETE` 统一返回 `ApiResponse` / `PageResult`，带 `@Operation`；
   写接口请求体带 `@Valid`（触发 DTO 校验注解）
 - CRUD 出入参走 DTO（CreateReq/UpdateReq/VO），`toVO` / `apply` 字段映射由模板自动生成；

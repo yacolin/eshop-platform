@@ -46,8 +46,9 @@ import java.util.Set;
  *
  * <p><b>控制器按端拆分</b>（Admin / Public）：每张表<b>默认生成两套</b> Controller
  * （{@code both}）——管理端 {@code <实体>AdminController}
- * （{@code /api/v1/admin/<resource>}）与小程序端 {@code <实体>PublicController}
- * （{@code /api/v1/public/<resource>}），两者统一落 {@code <域>.<业务>.controller} 包
+ * （类上只写业务路径，运行时 {@code /api/v1/admin/<resource>}，前缀由 {@code WebConfig} 按
+ * {@code @AdminController} 标记统一添加）与小程序端 {@code <实体>PublicController}
+ * （同理运行时 {@code /api/v1/public/<resource>}），两者统一落 {@code <域>.<业务>.controller} 包
  * （不按端再分子包），{@code @Tag} 名与 {@code operationId} 均带 {@code Admin}/{@code Public}
  * 后缀（同表双端时 operationId 仍全局唯一）；不需要的一侧手工删除即可。
  * 全局默认可用 {@code -Dgen.controllerLayout=admin|public|both} 覆盖，逐表覆盖见
@@ -140,7 +141,8 @@ public class CodeGenerator {
      *       默认给每张表生成管理端 + 小程序端两套 Controller——多出来的一侧按需手工删除，
      *       比事后补建省事（删除后重复生成也不会被恢复：生成器不覆盖已存在文件，但也不重建已删除文件）。</li>
      *   <li>生成的 Controller 统一落在 {@code <域>.<业务>.controller} 子包（不按端再分子包），
-     *       类名 {@code <实体><Admin|Public>Controller} 区分端；路由前缀 {@code /api/v1/<端>}，
+     *       类名 {@code <实体><Admin|Public>Controller} 区分端；类上只写业务路径，路由前缀
+     *       {@code /api/v1/<端>} 由 {@code WebConfig} 按标记注解统一添加，
      *       {@code operationId} 带端后缀（admin/public 同表生成两套时仍全局唯一）；</li>
      *   <li>{@code both} 的实现：同一张表拆进 admin/public 两组各跑一遍，第二遍只补缺失文件，
      *       已存在的 entity/mapper/service/dto 不会被覆盖（日志里的 "already exists" WARN 属正常）；</li>
@@ -300,7 +302,7 @@ public class CodeGenerator {
      * @param layout 按端布局：{@code admin}（管理端）或 {@code public}（小程序端），
      *               只会传入 {@link #expandLayout} 展开后的单值；决定 Controller 子包
      *               （统一落 controller 子包，端由类名 Admin/Public 区分）、
-     *               路由前缀（/api/v1/admin|public）、
+     *               路由前缀由 WebConfig 按标记注解添加（/api/v1/admin|public）、
      *               类名后缀（Admin/Public）与 operationId 后缀。
      */
     private static void generateModule(String url, String user, String pass, String author,
